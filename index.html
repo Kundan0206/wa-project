@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildDreams WhatsApp Automation Platform</title>
+    <meta name="description"
+        content="A compliant SaaS platform for businesses to manage their own WhatsApp communication, workflows, notifications, and support using their own approved WhatsApp Business account." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+        :root {
+            --navy: #021346;
+            --navy-2: #0a1f5c;
+            --teal: #009599;
+            --teal-2: #00b8bc;
+            --ink: #0b1020;
+            --mist: #f4f7f8;
+            --muted: #5a6472;
+            --line: rgba(2, 19, 70, .1);
+        }
+
+        * {
+            -webkit-font-smoothing: antialiased;
+            text-rendering: geometricPrecision;
+        }
+
+        html,
+        body {
+            margin: 0;
+            overflow-x: hidden;
+            background: #fbfcfc;
+            color: var(--ink);
+            font-family: Inter, system-ui, sans-serif;
+        }
+
+        .font-display {
+            font-family: "Instrument Serif", serif;
+            font-weight: 400;
+        }
+
+        .font-mono {
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        .bg-navy {
+            background: var(--navy);
+        }
+
+        .text-navy {
+            color: var(--navy);
+        }
+
+        .text-teal {
+            color: var(--teal);
+        }
+
+        .bg-teal {
+            background: var(--teal);
+        }
+
+        .border-line {
+            border-color: var(--line);
+        }
+
+        .grid-bg {
+            background-image:
+                linear-gradient(rgba(255, 255, 255, .07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, .07) 1px, transparent 1px);
+            background-size: 72px 72px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .55rem;
+            min-height: 52px;
+            border-radius: 999px;
+            padding: .9rem 1.35rem;
+            font-weight: 700;
+            transition: transform .25s ease, border-color .25s ease, background .25s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: var(--navy);
+            color: #fff;
+        }
+
+        .btn-teal {
+            background: var(--teal);
+            color: #fff;
+        }
+
+        .btn-ghost {
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--navy);
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: .4rem .75rem;
+            font-size: .72rem;
+        }
+
+        .card {
+            border: 1px solid var(--line);
+            background: #fff;
+            box-shadow: 0 24px 70px -42px rgba(2, 19, 70, .35);
+        }
+
+        .dark-card {
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(255, 255, 255, .055);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+        }
+
+        .hero-glow {
+            background:
+                radial-gradient(circle at 75% 20%, rgba(0, 184, 188, .36), transparent 28rem),
+                radial-gradient(circle at 12% 85%, rgba(255, 255, 255, .14), transparent 24rem),
+                linear-gradient(135deg, #021346, #061b54 55%, #021346);
+        }
+
+        @media (max-width: 768px) {
+            .grid-bg {
+                background-size: 42px 42px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="sticky top-0 z-50 border-b border-line bg-white/92 backdrop-blur">
+        <div class="mx-auto flex min-h-[76px] max-w-[1240px] items-center justify-between gap-5 px-6 lg:px-8">
+            <a href="https://builddreams.co.in" class="flex items-center gap-3" aria-label="BuildDreams home">
+                <img src="/assets/images/builddreams.png" alt="BuildDreams logo" class="h-10 w-auto" />
+                <span class="hidden font-mono text-[11px] text-navy/50 sm:inline">/ WHATSAPP AUTOMATION</span>
+            </a>
+            <nav class="hidden items-center gap-7 text-[14px] font-medium text-navy/70 lg:flex">
+                <a href="#features" class="hover:text-navy">Features</a>
+                <a href="#how-it-works" class="hover:text-navy">How it works</a>
+                <a href="#compliance" class="hover:text-navy">Compliance</a>
+                <a href="#integrations" class="hover:text-navy">Integrations</a>
+            </nav>
+            <a href="/contact.html" class="btn btn-primary">Request Demo <i data-lucide="arrow-up-right" class="h-4 w-4"></i></a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero-glow relative overflow-hidden text-white">
+            <div class="absolute inset-0 grid-bg opacity-35"></div>
+            <div class="relative mx-auto grid max-w-[1240px] gap-12 px-6 py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
+                <div class="lg:col-span-7">
+                    <div class="chip border-white/15 bg-white/8 text-white/70">
+                        <span class="h-1.5 w-1.5 rounded-full bg-teal"></span>
+                        <span class="font-mono text-[11px]">SAAS FOR OWNED WHATSAPP WORKFLOWS</span>
+                    </div>
+                    <h1 class="mt-7 max-w-4xl text-[48px] font-semibold leading-[1.02] tracking-[-0.04em] md:text-[78px]">
+                        WhatsApp Automation Platform for Businesses
+                    </h1>
+                    <p class="mt-6 max-w-2xl text-[18px] leading-[1.75] text-white/70">
+                        Automate customer communication, notifications, and support workflows using your own WhatsApp
+                        Business account.
+                    </p>
+                    <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+                        <a href="/contact.html" class="btn btn-teal">Request Demo <i data-lucide="send" class="h-4 w-4"></i></a>
+                        <a href="#platform" class="btn border border-white/15 bg-white/8 text-white">View Platform <i data-lucide="layout-dashboard" class="h-4 w-4"></i></a>
+                    </div>
+                    <div class="mt-8 grid max-w-2xl gap-3 text-[13px] text-white/62 sm:grid-cols-3">
+                        <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-teal"></i> Consent-first</div>
+                        <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-teal"></i> Own WABA</div>
+                        <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-teal"></i> Policy-aware</div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5" id="platform">
+                    <div class="dark-card rounded-[26px] p-4">
+                        <div class="rounded-[20px] bg-[#06194c] p-4">
+                            <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                                <div>
+                                    <div class="font-mono text-[10px] text-white/45">LIVE WORKSPACE</div>
+                                    <div class="mt-1 text-[18px] font-semibold">Customer Support Inbox</div>
+                                </div>
+                                <span class="rounded-full bg-teal/20 px-3 py-1 text-[12px] text-[#9ff2f5]">Opt-in only</span>
+                            </div>
+                            <div class="mt-4 grid gap-3">
+                                <div class="rounded-2xl border border-white/10 bg-white/8 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-semibold">Order update workflow</span>
+                                        <i data-lucide="workflow" class="h-4 w-4 text-teal"></i>
+                                    </div>
+                                    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] text-white/55">
+                                        <span class="rounded-xl bg-white/8 p-3">CRM event</span>
+                                        <span class="rounded-xl bg-white/8 p-3">Template</span>
+                                        <span class="rounded-xl bg-white/8 p-3">Own account</span>
+                                    </div>
+                                </div>
+                                <div class="rounded-2xl border border-white/10 bg-white/8 p-4">
+                                    <div class="text-[12px] text-white/45">Recent opted-in conversation</div>
+                                    <div class="mt-3 space-y-2 text-[13px]">
+                                        <div class="w-fit rounded-2xl bg-white/10 px-3 py-2">Your appointment is confirmed for 4 PM.</div>
+                                        <div class="ml-auto w-fit rounded-2xl bg-teal px-3 py-2 text-white">Thanks, see you then.</div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div class="rounded-2xl bg-white/8 p-3">
+                                        <div class="text-[20px] font-semibold">98%</div>
+                                        <div class="text-[11px] text-white/45">Delivered</div>
+                                    </div>
+                                    <div class="rounded-2xl bg-white/8 p-3">
+                                        <div class="text-[20px] font-semibold">24h</div>
+                                        <div class="text-[11px] text-white/45">Service window</div>
+                                    </div>
+                                    <div class="rounded-2xl bg-white/8 p-3">
+                                        <div class="text-[20px] font-semibold">0</div>
+                                        <div class="text-[11px] text-white/45">Bulk tools</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-20">
+            <div class="mx-auto grid max-w-[1240px] gap-8 px-6 lg:grid-cols-12 lg:px-8">
+                <div class="lg:col-span-5">
+                    <div class="chip text-navy/55"><span class="font-mono text-[11px]">PROBLEM TO SOLUTION</span></div>
+                    <h2 class="mt-5 text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-navy md:text-[58px]">
+                        Manual WhatsApp work does not scale.
+                    </h2>
+                </div>
+                <div class="grid gap-4 lg:col-span-7 md:grid-cols-2">
+                    <div class="card rounded-[22px] p-7">
+                        <i data-lucide="message-circle-warning" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 text-[22px] font-semibold text-navy">The problem</h3>
+                        <p class="mt-3 text-[15px] leading-[1.7] text-[color:var(--muted)]">
+                            Teams handle updates, reminders, and support manually. Replies get missed, customers wait,
+                            and there is no structured view of consent, templates, or outcomes.
+                        </p>
+                    </div>
+                    <div class="card rounded-[22px] p-7">
+                        <i data-lucide="git-branch-plus" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 text-[22px] font-semibold text-navy">The solution</h3>
+                        <p class="mt-3 text-[15px] leading-[1.7] text-[color:var(--muted)]">
+                            Build workflows around your own WhatsApp Business account, connect business events, route
+                            conversations, and keep every message consent-based and auditable.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="bg-[#f3f8f8] py-20">
+            <div class="mx-auto max-w-[1240px] px-6 lg:px-8">
+                <div class="max-w-3xl">
+                    <div class="chip bg-white text-navy/55"><span class="font-mono text-[11px]">FEATURES</span></div>
+                    <h2 class="mt-5 text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-navy md:text-[58px]">
+                        Everything needed for compliant communication workflows.
+                    </h2>
+                </div>
+                <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-5">
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="bell-ring" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">Automated Notifications</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Trigger order, appointment, and service updates from your systems.</p>
+                    </div>
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="inbox" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">Customer Support Inbox</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Manage opted-in conversations, notes, assignment, and follow-ups.</p>
+                    </div>
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="workflow" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">Workflow Automation</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Build event-based flows for reminders, routing, and status changes.</p>
+                    </div>
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="plug-zap" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">CRM Integration</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Connect enquiries, tickets, customers, and lifecycle events.</p>
+                    </div>
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="bot" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">AI-powered Responses</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Optional draft assistance for support teams, with human review paths.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="bg-navy py-20 text-white">
+            <div class="mx-auto max-w-[1240px] px-6 lg:px-8">
+                <div class="grid gap-10 lg:grid-cols-12">
+                    <div class="lg:col-span-4">
+                        <div class="chip border-white/15 bg-white/8 text-white/60"><span class="font-mono text-[11px]">HOW IT WORKS</span></div>
+                        <h2 class="mt-5 text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] md:text-[58px]">
+                            A simple path that keeps the business in control.
+                        </h2>
+                    </div>
+                    <div class="grid gap-4 lg:col-span-8 md:grid-cols-2">
+                        <div class="dark-card rounded-[22px] p-6">
+                            <span class="font-mono text-[12px] text-teal">01</span>
+                            <h3 class="mt-4 text-[22px] font-semibold">Business signs up</h3>
+                            <p class="mt-3 text-[14px] leading-[1.7] text-white/60">The business creates its BuildDreams workspace and defines its communication use cases.</p>
+                        </div>
+                        <div class="dark-card rounded-[22px] p-6">
+                            <span class="font-mono text-[12px] text-teal">02</span>
+                            <h3 class="mt-4 text-[22px] font-semibold">Connects their own WhatsApp Business account</h3>
+                            <p class="mt-3 text-[14px] leading-[1.7] text-white/60">Customers use their own approved WhatsApp Business account. BuildDreams is not a WhatsApp provider.</p>
+                        </div>
+                        <div class="dark-card rounded-[22px] p-6">
+                            <span class="font-mono text-[12px] text-teal">03</span>
+                            <h3 class="mt-4 text-[22px] font-semibold">Creates message workflows</h3>
+                            <p class="mt-3 text-[14px] leading-[1.7] text-white/60">Teams configure templates, triggers, assignment rules, and CRM actions for approved use cases.</p>
+                        </div>
+                        <div class="dark-card rounded-[22px] p-6">
+                            <span class="font-mono text-[12px] text-teal">04</span>
+                            <h3 class="mt-4 text-[22px] font-semibold">Sends messages only to opted-in users</h3>
+                            <p class="mt-3 text-[14px] leading-[1.7] text-white/60">All communication requires user consent, opt-out handling, and customer-owned compliance controls.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-20">
+            <div class="mx-auto max-w-[1240px] px-6 lg:px-8">
+                <div class="max-w-3xl">
+                    <div class="chip text-navy/55"><span class="font-mono text-[11px]">PLATFORM PREVIEW</span></div>
+                    <h2 class="mt-5 text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-navy md:text-[58px]">
+                        Clear dashboards, not hidden automation.
+                    </h2>
+                </div>
+                <div class="mt-10 grid gap-5 lg:grid-cols-3">
+                    <div class="card rounded-[24px] p-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-[20px] font-semibold text-navy">Chat dashboard</h3>
+                            <i data-lucide="messages-square" class="h-5 w-5 text-teal"></i>
+                        </div>
+                        <div class="mt-6 space-y-3">
+                            <div class="rounded-2xl bg-[#f3f8f8] p-3 text-[13px] text-navy/70">New opted-in support conversation</div>
+                            <div class="rounded-2xl bg-[#f3f8f8] p-3 text-[13px] text-navy/70">Assigned to Priya from Support</div>
+                            <div class="rounded-2xl bg-[#f3f8f8] p-3 text-[13px] text-navy/70">Follow-up scheduled after resolution</div>
+                        </div>
+                    </div>
+                    <div class="card rounded-[24px] p-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-[20px] font-semibold text-navy">Automation flow</h3>
+                            <i data-lucide="route" class="h-5 w-5 text-teal"></i>
+                        </div>
+                        <div class="mt-6 grid gap-3 text-[13px] text-navy/70">
+                            <div class="rounded-2xl border border-line p-3">CRM event received</div>
+                            <div class="ml-6 rounded-2xl border border-line p-3">Approved template selected</div>
+                            <div class="ml-12 rounded-2xl border border-line p-3">Customer-owned account used</div>
+                        </div>
+                    </div>
+                    <div class="card rounded-[24px] p-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-[20px] font-semibold text-navy">Message analytics</h3>
+                            <i data-lucide="bar-chart-3" class="h-5 w-5 text-teal"></i>
+                        </div>
+                        <div class="mt-6 space-y-4">
+                            <div>
+                                <div class="flex justify-between text-[12px] text-navy/50"><span>Delivered</span><span>98%</span></div>
+                                <div class="mt-2 h-2 rounded-full bg-[#e9f1f1]"><div class="h-2 w-[98%] rounded-full bg-teal"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[12px] text-navy/50"><span>Replies</span><span>42%</span></div>
+                                <div class="mt-2 h-2 rounded-full bg-[#e9f1f1]"><div class="h-2 w-[42%] rounded-full bg-navy"></div></div>
+                            </div>
+                            <div class="rounded-2xl bg-[#f3f8f8] p-3 text-[12px] text-navy/55">Mock data for interface preview only.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="compliance" class="bg-[#f3f8f8] py-20">
+            <div class="mx-auto max-w-[1240px] px-6 lg:px-8">
+                <div class="grid gap-8 lg:grid-cols-12">
+                    <div class="lg:col-span-5">
+                        <div class="chip bg-white text-navy/55"><span class="font-mono text-[11px]">WHATSAPP COMPLIANCE</span></div>
+                        <h2 class="mt-5 text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-navy md:text-[58px]">
+                            Clear boundaries by design.
+                        </h2>
+                    </div>
+                    <div class="lg:col-span-7">
+                        <div class="card rounded-[24px] p-7">
+                            <p class="text-[18px] leading-[1.8] text-navy">
+                                We provide SaaS tools to help businesses manage their own WhatsApp communication.<br />
+                                We do not send messages on behalf of users or provide bulk messaging services.<br />
+                                All communication requires user consent (opt-in).<br />
+                                Customers must use their own approved WhatsApp Business account and comply with WhatsApp policies.
+                            </p>
+                            <div class="mt-6 grid gap-3 text-[13px] text-[color:var(--muted)] md:grid-cols-2">
+                                <div class="flex gap-2"><i data-lucide="check-circle-2" class="mt-0.5 h-4 w-4 shrink-0 text-teal"></i> No bulk messaging service</div>
+                                <div class="flex gap-2"><i data-lucide="check-circle-2" class="mt-0.5 h-4 w-4 shrink-0 text-teal"></i> No third-party WhatsApp account resale</div>
+                                <div class="flex gap-2"><i data-lucide="check-circle-2" class="mt-0.5 h-4 w-4 shrink-0 text-teal"></i> Opt-in and opt-out controls</div>
+                                <div class="flex gap-2"><i data-lucide="check-circle-2" class="mt-0.5 h-4 w-4 shrink-0 text-teal"></i> Customer-owned compliance responsibility</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-20">
+            <div class="mx-auto max-w-[1240px] px-6 lg:px-8">
+                <div class="max-w-3xl">
+                    <div class="chip text-navy/55"><span class="font-mono text-[11px]">USE CASES</span></div>
+                    <h2 class="mt-5 text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-navy md:text-[58px]">
+                        Practical workflows for opted-in customers.
+                    </h2>
+                </div>
+                <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="package-check" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">Order updates</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Confirmations, shipping updates, delivery notices, and service status.</p>
+                    </div>
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="headphones" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">Customer support</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Route support conversations to agents with context and follow-up notes.</p>
+                    </div>
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="calendar-clock" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">Appointment reminders</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Send reminders and confirmations to users who have opted in.</p>
+                    </div>
+                    <div class="card rounded-[20px] p-6">
+                        <i data-lucide="megaphone" class="h-6 w-6 text-teal"></i>
+                        <h3 class="mt-5 font-semibold text-navy">Business notifications</h3>
+                        <p class="mt-3 text-[14px] leading-[1.65] text-[color:var(--muted)]">Operational alerts, status changes, and relevant customer updates.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="integrations" class="bg-navy py-20 text-white">
+            <div class="mx-auto grid max-w-[1240px] gap-8 px-6 lg:grid-cols-12 lg:px-8">
+                <div class="lg:col-span-5">
+                    <div class="chip border-white/15 bg-white/8 text-white/60"><span class="font-mono text-[11px]">INTEGRATIONS</span></div>
+                    <h2 class="mt-5 text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] md:text-[58px]">
+                        Connect through approved infrastructure.
+                    </h2>
+                </div>
+                <div class="lg:col-span-7">
+                    <div class="dark-card rounded-[24px] p-7">
+                        <p class="text-[18px] leading-[1.75] text-white/72">
+                            Integrates with official WhatsApp Business API via approved providers such as Meta Cloud API,
+                            Twilio, or MSG91.
+                        </p>
+                        <div class="mt-6 grid gap-3 md:grid-cols-3">
+                            <div class="rounded-2xl bg-white/8 p-4">
+                                <i data-lucide="cloud" class="h-5 w-5 text-teal"></i>
+                                <div class="mt-3 font-semibold">Meta Cloud API</div>
+                            </div>
+                            <div class="rounded-2xl bg-white/8 p-4">
+                                <i data-lucide="blocks" class="h-5 w-5 text-teal"></i>
+                                <div class="mt-3 font-semibold">Twilio</div>
+                            </div>
+                            <div class="rounded-2xl bg-white/8 p-4">
+                                <i data-lucide="network" class="h-5 w-5 text-teal"></i>
+                                <div class="mt-3 font-semibold">MSG91</div>
+                            </div>
+                        </div>
+                        <p class="mt-5 text-[13px] leading-[1.7] text-white/48">
+                            Provider availability, account approval, template approval, pricing, and policy compliance
+                            remain subject to Meta, WhatsApp, and the selected provider's terms.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-16">
+            <div class="mx-auto max-w-[1240px] px-6 lg:px-8">
+                <div class="card rounded-[24px] p-7 md:p-10">
+                    <div class="grid gap-6 md:grid-cols-2 md:items-center">
+                        <div>
+                            <div class="chip text-navy/55"><span class="font-mono text-[11px]">TRUST & LEGAL</span></div>
+                            <h2 class="mt-5 text-[32px] font-semibold tracking-[-0.02em] text-navy md:text-[44px]">
+                                Public policies for clear review.
+                            </h2>
+                        </div>
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <a href="/privacy.html" class="btn btn-ghost">Privacy</a>
+                            <a href="/terms.html" class="btn btn-ghost">Terms</a>
+                            <a href="/contact.html" class="btn btn-ghost">Contact</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="px-6 pb-20 lg:px-8">
+            <div class="mx-auto max-w-[1240px] overflow-hidden rounded-[30px] bg-navy p-8 text-white md:p-12">
+                <div class="grid gap-8 md:grid-cols-2 md:items-center">
+                    <div>
+                        <h2 class="text-[38px] font-semibold leading-[1.05] tracking-[-0.03em] md:text-[58px]">
+                            Start building your WhatsApp workflows
+                        </h2>
+                        <p class="mt-5 max-w-xl text-[16px] leading-[1.75] text-white/65">
+                            See how BuildDreams can turn opted-in customer communication into structured support,
+                            notification, and CRM workflows.
+                        </p>
+                    </div>
+                    <div class="flex md:justify-end">
+                        <a href="/contact.html" class="btn btn-teal">Request Demo <i data-lucide="arrow-up-right" class="h-4 w-4"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-line bg-white py-8">
+        <div class="mx-auto flex max-w-[1240px] flex-col gap-4 px-6 text-[13px] text-[color:var(--muted)] md:flex-row md:items-center md:justify-between lg:px-8">
+            <div>© 2026 BuildDreams Technologies. Not affiliated with WhatsApp or Meta.</div>
+            <div class="flex flex-wrap gap-4">
+                <a href="/privacy.html" class="hover:text-teal">Privacy</a>
+                <a href="/terms.html" class="hover:text-teal">Terms</a>
+                <a href="/contact.html" class="hover:text-teal">Contact</a>
+                <a href="https://builddreams.co.in" class="hover:text-teal">BuildDreams</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
