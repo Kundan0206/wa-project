@@ -30,7 +30,7 @@ services:
       JWT_SECRET: your-jwt-secret-change-in-production
       NODE_ENV: development
       PORT: 4000
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: https://wa.builddreams.co.in
       META_WEBHOOK_VERIFY_TOKEN: whatsapp_webhook_verify
     depends_on:
       redis:
