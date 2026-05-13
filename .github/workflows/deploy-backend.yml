@@ -1,0 +1,35 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Lightsail via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /home/ubuntu/wa
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+            sudo docker build -t wa-api -f apps/api/Dockerfile .
+            sudo docker rm -f wa-api >/dev/null 2>&1 || true
+            sudo docker run -d \
+              --name wa-api \
+              --restart unless-stopped \
+              --env-file /home/ubuntu/wa/.env \
+              -p 127.0.0.1:4000:4000 \
+              wa-api pnpm run start
+            sudo nginx -t
+            sudo systemctl reload nginx
