@@ -1,0 +1,24 @@
+{
+  "name": "whatsapp-tech-provider",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm run --parallel dev",
+    "build": "pnpm --filter @wa/web build",
+    "build:all": "pnpm run --parallel build",
+    "build:web": "pnpm --filter @wa/web build",
+    "dev:web": "pnpm --filter @wa/web dev",
+    "lint": "pnpm run --parallel lint",
+    "db:generate": "pnpm --filter @wa/api run db:generate",
+    "db:push": "pnpm --filter @wa/api run db:push",
+    "db:migrate": "pnpm --filter @wa/api run db:migrate",
+    "db:studio": "pnpm --filter @wa/api run db:studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

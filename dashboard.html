@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildDreams WA Dashboard Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <style>
+        :root {
+            --navy: #021346;
+            --panel: #071a51;
+            --panel-2: #0b225f;
+            --teal: #009599;
+            --line: rgba(255, 255, 255, .12);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--navy);
+            color: #fff;
+            font-family: Inter, system-ui, sans-serif;
+        }
+
+        .font-mono {
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, .06);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+        }
+
+        .soft {
+            background: rgba(255, 255, 255, .08);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="min-h-screen p-4 md:p-6">
+        <div class="grid min-h-[680px] overflow-hidden rounded-[24px] border border-white/10 bg-[#06194c] lg:grid-cols-[260px_1fr]">
+            <aside class="hidden border-r border-white/10 bg-[#04143f] p-5 lg:block">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#009599]">
+                        <i data-lucide="message-circle" class="h-5 w-5"></i>
+                    </div>
+                    <div>
+                        <div class="font-semibold">BuildDreams WA</div>
+                        <div class="font-mono text-[10px] text-white/45">OWN WABA WORKSPACE</div>
+                    </div>
+                </div>
+
+                <nav class="mt-8 space-y-2 text-[14px] text-white/62">
+                    <div class="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2 text-white">
+                        <i data-lucide="layout-dashboard" class="h-4 w-4 text-[#00b8bc]"></i> Overview
+                    </div>
+                    <div class="flex items-center gap-3 rounded-xl px-3 py-2">
+                        <i data-lucide="inbox" class="h-4 w-4"></i> Inbox
+                    </div>
+                    <div class="flex items-center gap-3 rounded-xl px-3 py-2">
+                        <i data-lucide="workflow" class="h-4 w-4"></i> Workflows
+                    </div>
+                    <div class="flex items-center gap-3 rounded-xl px-3 py-2">
+                        <i data-lucide="file-check-2" class="h-4 w-4"></i> Templates
+                    </div>
+                    <div class="flex items-center gap-3 rounded-xl px-3 py-2">
+                        <i data-lucide="shield-check" class="h-4 w-4"></i> Compliance
+                    </div>
+                    <div class="flex items-center gap-3 rounded-xl px-3 py-2">
+                        <i data-lucide="plug-zap" class="h-4 w-4"></i> Integrations
+                    </div>
+                </nav>
+
+                <div class="panel mt-8 rounded-2xl p-4">
+                    <div class="font-mono text-[10px] text-white/42">ACCOUNT</div>
+                    <div class="mt-2 font-semibold">Customer-owned WABA</div>
+                    <div class="mt-3 rounded-full bg-[#009599]/18 px-3 py-1 text-[12px] text-[#9ff2f5]">Connected via Meta Cloud API</div>
+                </div>
+            </aside>
+
+            <section class="p-4 md:p-6">
+                <header class="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div class="font-mono text-[11px] tracking-[0.12em] text-white/42">DASHBOARD PREVIEW</div>
+                        <h1 class="mt-1 text-[28px] font-semibold tracking-[-0.03em] md:text-[36px]">WhatsApp workflow control center</h1>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-[12px]">
+                        <span class="rounded-full bg-[#009599]/18 px-3 py-1 text-[#9ff2f5]">Opt-in required</span>
+                        <span class="rounded-full bg-white/8 px-3 py-1 text-white/65">No bulk sender</span>
+                        <span class="rounded-full bg-white/8 px-3 py-1 text-white/65">Not BSP</span>
+                    </div>
+                </header>
+
+                <div class="mt-6 grid gap-4 md:grid-cols-4">
+                    <div class="panel rounded-2xl p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] text-white/50">Opted-in contacts</span>
+                            <i data-lucide="users" class="h-4 w-4 text-[#00b8bc]"></i>
+                        </div>
+                        <div class="mt-3 text-[30px] font-semibold">1,284</div>
+                        <div class="mt-1 text-[12px] text-white/42">Imported with consent records</div>
+                    </div>
+                    <div class="panel rounded-2xl p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] text-white/50">Approved templates</span>
+                            <i data-lucide="file-check-2" class="h-4 w-4 text-[#00b8bc]"></i>
+                        </div>
+                        <div class="mt-3 text-[30px] font-semibold">12</div>
+                        <div class="mt-1 text-[12px] text-white/42">Transactional + support use</div>
+                    </div>
+                    <div class="panel rounded-2xl p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] text-white/50">Active workflows</span>
+                            <i data-lucide="workflow" class="h-4 w-4 text-[#00b8bc]"></i>
+                        </div>
+                        <div class="mt-3 text-[30px] font-semibold">8</div>
+                        <div class="mt-1 text-[12px] text-white/42">Trigger-based automations</div>
+                    </div>
+                    <div class="panel rounded-2xl p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] text-white/50">Bulk campaigns</span>
+                            <i data-lucide="ban" class="h-4 w-4 text-[#00b8bc]"></i>
+                        </div>
+                        <div class="mt-3 text-[30px] font-semibold">0</div>
+                        <div class="mt-1 text-[12px] text-white/42">Not supported</div>
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
+                    <div class="panel rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-[18px] font-semibold">Automation flow</h2>
+                            <span class="rounded-full bg-white/8 px-3 py-1 text-[12px] text-white/55">Order update</span>
+                        </div>
+                        <div class="mt-5 grid gap-3 md:grid-cols-4">
+                            <div class="soft rounded-2xl p-4">
+                                <i data-lucide="database" class="h-5 w-5 text-[#00b8bc]"></i>
+                                <div class="mt-3 font-semibold">CRM event</div>
+                                <p class="mt-2 text-[12px] leading-[1.6] text-white/48">Order status changes in customer system.</p>
+                            </div>
+                            <div class="soft rounded-2xl p-4">
+                                <i data-lucide="shield-check" class="h-5 w-5 text-[#00b8bc]"></i>
+                                <div class="mt-3 font-semibold">Consent check</div>
+                                <p class="mt-2 text-[12px] leading-[1.6] text-white/48">Verify opt-in source and status.</p>
+                            </div>
+                            <div class="soft rounded-2xl p-4">
+                                <i data-lucide="file-text" class="h-5 w-5 text-[#00b8bc]"></i>
+                                <div class="mt-3 font-semibold">Template</div>
+                                <p class="mt-2 text-[12px] leading-[1.6] text-white/48">Use approved update template.</p>
+                            </div>
+                            <div class="soft rounded-2xl p-4">
+                                <i data-lucide="send" class="h-5 w-5 text-[#00b8bc]"></i>
+                                <div class="mt-3 font-semibold">Send via own WABA</div>
+                                <p class="mt-2 text-[12px] leading-[1.6] text-white/48">Customer account sends through official API.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-[18px] font-semibold">Support inbox</h2>
+                            <span class="rounded-full bg-[#009599]/18 px-3 py-1 text-[12px] text-[#9ff2f5]">24h window open</span>
+                        </div>
+                        <div class="mt-5 space-y-3">
+                            <div class="soft rounded-2xl p-4">
+                                <div class="flex justify-between gap-4">
+                                    <strong>Riya Sharma</strong>
+                                    <span class="text-[12px] text-white/42">2 min ago</span>
+                                </div>
+                                <p class="mt-2 text-[13px] text-white/58">Can I reschedule tomorrow's appointment?</p>
+                            </div>
+                            <div class="soft rounded-2xl p-4">
+                                <div class="flex justify-between gap-4">
+                                    <strong>Mahesh Retail</strong>
+                                    <span class="text-[12px] text-white/42">8 min ago</span>
+                                </div>
+                                <p class="mt-2 text-[13px] text-white/58">Please confirm dispatch for order #BD-2841.</p>
+                            </div>
+                            <div class="soft rounded-2xl p-4">
+                                <div class="flex justify-between gap-4">
+                                    <strong>Nisha Patel</strong>
+                                    <span class="text-[12px] text-white/42">14 min ago</span>
+                                </div>
+                                <p class="mt-2 text-[13px] text-white/58">Thanks, I received the confirmation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-5 lg:grid-cols-3">
+                    <div class="panel rounded-2xl p-5">
+                        <h2 class="text-[18px] font-semibold">Compliance checklist</h2>
+                        <div class="mt-4 space-y-3 text-[13px] text-white/62">
+                            <div class="flex gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-[#00b8bc]"></i> Opt-in source stored</div>
+                            <div class="flex gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-[#00b8bc]"></i> Opt-out keyword enabled</div>
+                            <div class="flex gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-[#00b8bc]"></i> Approved template selected</div>
+                            <div class="flex gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-[#00b8bc]"></i> Customer WABA connected</div>
+                        </div>
+                    </div>
+                    <div class="panel rounded-2xl p-5">
+                        <h2 class="text-[18px] font-semibold">Template review</h2>
+                        <div class="mt-4 rounded-2xl bg-white/8 p-4 text-[13px] leading-[1.65] text-white/58">
+                            Hello {{name}}, your service request {{ticket_id}} has been updated to {{status}}.
+                        </div>
+                        <div class="mt-3 rounded-full bg-[#009599]/18 px-3 py-1 text-center text-[12px] text-[#9ff2f5]">Service notification</div>
+                    </div>
+                    <div class="panel rounded-2xl p-5">
+                        <h2 class="text-[18px] font-semibold">Integrations</h2>
+                        <div class="mt-4 grid gap-3 text-[13px]">
+                            <div class="soft rounded-xl px-3 py-2">Meta Cloud API</div>
+                            <div class="soft rounded-xl px-3 py-2">Twilio</div>
+                            <div class="soft rounded-xl px-3 py-2">MSG91</div>
+                            <div class="soft rounded-xl px-3 py-2">BuildDreams CRM</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

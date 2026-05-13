@@ -1,0 +1,42 @@
+import { Router } from 'express';
+import authRoutes from './auth.routes.js';
+import teamRoutes from './team.routes.js';
+import apiKeysRoutes from './apiKeys.routes.js';
+import wabaRoutes from './waba.routes.js';
+import phoneNumbersRoutes from './phoneNumbers.routes.js';
+import messagesRoutes from './messages.routes.js';
+import templatesRoutes from './templates.routes.js';
+import contactsRoutes from './contacts.routes.js';
+import segmentsRoutes from './segments.routes.js';
+import campaignsRoutes from './campaigns.routes.js';
+import conversationsRoutes from './conversations.routes.js';
+import flowsRoutes from './flows.routes.js';
+import analyticsRoutes from './analytics.routes.js';
+import billingRoutes from './billing.routes.js';
+import webhooksRoutes from './webhooks.routes.js';
+import mediaRoutes from './media.routes.js';
+import settingsRoutes from './settings.routes.js';
+import webhookRoutes from './webhook.routes.js';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/team', teamRoutes);
+router.use('/api-keys', apiKeysRoutes);
+router.use('/waba', wabaRoutes);
+router.use('/phone-numbers', phoneNumbersRoutes);
+router.use('/messages', messagesRoutes);
+router.use('/templates', templatesRoutes);
+router.use('/contacts', contactsRoutes);
+router.use('/segments', segmentsRoutes);
+router.use('/campaigns', campaignsRoutes);
+router.use('/conversations', conversationsRoutes);
+router.use('/flows', flowsRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/billing', billingRoutes);
+router.use('/webhooks', webhooksRoutes);
+router.use('/media', mediaRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/webhook', webhookRoutes);
+
+export default router;

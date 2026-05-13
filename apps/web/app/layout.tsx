@@ -1,0 +1,26 @@
+import './globals.css';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  metadataBase: new URL('https://wa.builddreams.co.in'),
+  title: 'BuildDreams WhatsApp Automation Platform',
+  description: 'A compliant SaaS platform for businesses to manage their own WhatsApp communication, workflows, notifications, and support using their own approved WhatsApp Business account.',
+  openGraph: {
+    title: 'BuildDreams WhatsApp Automation Platform',
+    description: 'Compliant SaaS platform for WhatsApp automation using official APIs',
+    url: 'https://wa.builddreams.co.in',
+    type: 'website'
+  }
+};
+
+export default function RootLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className="antialiased">{children}</body>
+    </html>
+  );
+}

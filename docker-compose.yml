@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7
+    container_name: wa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: wa-api
+    ports:
+      - "4000:4000"
+    environment:
+      SUPABASE_URL: https://rxpczsexcmlaqpahgaz.supabase.co
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4cGN6c2V4Y21sYXFxcGhhZ2F6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MDY5OTcsImV4cCI6MjA5MzE4Mjk5N30.grSkgNhpAL5UxMoL4WZ5UE2jT82hGCUoExB7fwyI1oQ
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4cGN6c2V4Y21sYXFxcGhhZ2F6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzYwNjk5NywiZXhwIjoyMDkzMTgyOTk3fQ.EGpUebpHrp69zr8U15kqvuDUjvJyFa9yIYUcLb-MJVc
+      SUPABASE_BUCKET_NAME: whatsapp-media
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-jwt-secret-change-in-production
+      NODE_ENV: development
+      PORT: 4000
+      FRONTEND_URL: http://localhost:3000
+      META_WEBHOOK_VERIFY_TOKEN: whatsapp_webhook_verify
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app
+      - /app/node_modules
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: wa-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: https://rxpczsexcmlaqpahgaz.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4cGN6c2V4Y21sYXFxcGhhZ2F6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MDY5OTcsImV4cCI6MjA5MzE4Mjk5N30.grSkgNhpAL5UxMoL4WZ5UE2jT82hGCUoExB7fwyI1oQ
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  redis_data:

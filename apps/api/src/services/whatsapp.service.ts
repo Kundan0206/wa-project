@@ -1,0 +1,202 @@
+const META_API_URL = process.env.META_API_URL || 'https://graph.facebook.com/v19.0';
+
+export interface WhatsAppMessage {
+  messaging_product: string;
+  to: string;
+  type: string;
+  [key: string]: any;
+}
+
+export async function sendWhatsAppMessage(
+  accessToken: string,
+  phoneNumberId: string,
+  to: string,
+  message: WhatsAppMessage,
+  wamid?: string
+) {
+  const url = wamid
+    ? `${META_API_URL}/${wamid}/messages`
+    : `${META_API_URL}/${phoneNumberId}/messages`;
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    to,
+    ...message
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json();
+
+  if (data.error) {
+    throw new Error(data.error.message);
+  }
+
+  return data;
+}
+
+export async function sendTemplateMessage(
+  accessToken: string,
+  phoneNumberId: string,
+  to: string,
+  templateName: string,
+  languageCode: string,
+  components?: any[]
+) {
+  const message = {
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      ...(components && { components })
+    }
+  };
+
+  return sendWhatsAppMessage(accessToken, phoneNumberId, to, message);
+}
+
+export async function exchangeCodeForToken(code: string) {
+  const clientId = process.env.META_APP_ID;
+  const clientSecret = process.env.META_APP_SECRET;
+  const redirectUri = process.env.META_REDIRECT_URI || 'https://your-domain.com/api/v1/waba/callback';
+
+  const response = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&code=${code}&redirect_uri=${redirectUri}`, {
+    method: 'GET'
+  });
+
+  const data = await response.json();
+
+  if (data.error) {
+    throw new Error(data.error.message);
+  }
+
+  const meResponse = await fetch(`${META_API_URL}/me?fields=id,name,business_phone_number,timezone,currency&access_token=${data.access_token}`);
+  const meData = await meResponse.json();
+
+  return {
+    accessToken: data.access_token,
+    wabaId: meData.id,
+    wabaName: meData.name,
+    currency: meData.currency,
+    timezone: meData.timezone
+  };
+}
+
+export async function registerPhoneNumber(
+  accessToken: string,
+  phoneNumberId: string,
+  displayName: string
+) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/register`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ messaging_product: 'whatsapp', display_name: displayName })
+  });
+
+  return response.json();
+}
+
+export async function getPhoneNumberQuality(accessToken: string, phoneNumberId: string) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}?fields=quality_score,status`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  return response.json();
+}
+
+export async function createTemplate(
+  accessToken: string,
+  wabaId: string,
+  template: {
+    name: string;
+    category: string;
+    language: string;
+    components: any[];
+  }
+) {
+  const response = await fetch(`${META_API_URL}/${wabaId}/message_templates`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(template)
+  });
+
+  const data = await response.json();
+
+  if (data.error) {
+    throw new Error(data.error.message);
+  }
+
+  return data;
+}
+
+export async function deleteTemplate(accessToken: string, templateId: string) {
+  const response = await fetch(`${META_API_URL}/${templateId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  return response.json();
+}
+
+export async function getTemplateAnalytics(accessToken: string, templateId: string) {
+  const response = await fetch(`${META_API_URL}/${templateId}?fields=quality_score,status`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  const data = await response.json();
+
+  return {
+    qualityScore: data.quality_score || 0,
+    status: data.status
+  };
+}
+
+export async function downloadWhatsAppMedia(accessToken: string, mediaId: string) {
+  const response = await fetch(`${META_API_URL}/${mediaId}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  const data = await response.json();
+
+  if (data.url) {
+    const mediaResponse = await fetch(data.url, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    return {
+      content: Buffer.from(await mediaResponse.arrayBuffer()),
+      mimeType: mediaResponse.headers.get('content-type')
+    };
+  }
+
+  throw new Error('No media URL found');
+}
+
+export async function subscribeToWebhooks(accessToken: string, phoneNumberId: string, callbackUrl: string) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/webhooks`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      url: callbackUrl,
+      fields: ['messages', 'message_template_status_update', 'phone_number_quality_update']
+    })
+  });
+
+  return response.json();
+}

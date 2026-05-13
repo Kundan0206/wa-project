@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --canvas: #f5f5f5;
+    --canvas-soft: #fafafa;
+    --canvas-deep: #0c0a09;
+    --surface-card: #ffffff;
+    --surface-strong: #f0efed;
+    --surface-dark: #0c0a09;
+    --surface-dark-elevated: #1c1917;
+    --hairline: #e7e5e4;
+    --hairline-soft: #f0efed;
+    --hairline-strong: #d6d3d1;
+    --ink: #0c0a09;
+    --body: #4e4e4e;
+    --body-strong: #292524;
+    --muted: #777169;
+    --muted-soft: #a8a29e;
+    --primary: #292524;
+    --primary-active: #0c0a09;
+    --on-primary: #ffffff;
+    --on-dark: #ffffff;
+    --on-dark-soft: #a8a29e;
+    --gradient-mint: #a7e5d3;
+    --gradient-peach: #f4c5a8;
+    --gradient-lavender: #c8b8e0;
+    --gradient-sky: #a8c8e8;
+    --gradient-rose: #e8b8c4;
+    --success: #16a34a;
+    --error: #dc2626;
+  }
+
+  * {
+    @apply border-hairline;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-body;
+    font-size: 16px;
+    line-height: 1.5;
+    letter-spacing: 0.16px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'EB Garamond', 'Times New Roman', serif;
+    font-weight: 300;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-on-primary font-body text-button px-5 py-2.5 rounded-pill inline-flex items-center justify-center;
+    height: 40px;
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    @apply bg-primary-active;
+  }
+
+  .btn-outline {
+    @apply bg-transparent text-ink border border-hairline-strong font-body text-button px-5 py-2.5 rounded-pill inline-flex items-center justify-center;
+    height: 40px;
+  }
+
+  .btn-outline:hover {
+    @apply bg-hairline-soft;
+  }
+
+  .text-link {
+    @apply text-ink font-body text-button cursor-pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .card {
+    @apply bg-surface-card rounded-xl border border-hairline p-6;
+  }
+
+  .card-soft {
+    @apply bg-canvas-soft rounded-xl p-8;
+  }
+
+  .input {
+    @apply bg-surface-card text-ink border border-hairline-strong rounded-md px-4 py-3 h-11 w-full;
+    font-size: 16px;
+    letter-spacing: 0.16px;
+  }
+
+  .input:focus {
+    @apply outline-none border-2 border-ink;
+  }
+
+  .badge {
+    @apply bg-surface-strong text-ink font-body text-caption-uppercase rounded-pill px-2.5 py-1 inline-flex items-center;
+  }
+
+  .section {
+    @apply py-section;
+  }
+
+  .gradient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.6;
+  }
+
+  .gradient-orb-mint {
+    background: radial-gradient(circle, var(--gradient-mint) 0%, transparent 70%);
+  }
+
+  .gradient-orb-peach {
+    background: radial-gradient(circle, var(--gradient-peach) 0%, transparent 70%);
+  }
+
+  .gradient-orb-lavender {
+    background: radial-gradient(circle, var(--gradient-lavender) 0%, transparent 70%);
+  }
+
+  .gradient-orb-sky {
+    background: radial-gradient(circle, var(--gradient-sky) 0%, transparent 70%);
+  }
+
+  .gradient-orb-rose {
+    background: radial-gradient(circle, var(--gradient-rose) 0%, transparent 70%);
+  }
+
+  .nav-link {
+    @apply font-body text-nav-link text-ink;
+  }
+
+  .nav-link:hover {
+    @apply text-body-strong;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'EB Garamond', 'Times New Roman', serif;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .tracking-body {
+    letter-spacing: 0.16px;
+  }
+}
