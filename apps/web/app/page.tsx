@@ -153,7 +153,7 @@ export default function HomePage() {
                 <div className="font-body text-caption-uppercase text-muted">CONTACT</div>
                 <div className="mt-sm font-display text-display-sm text-ink">+91 97658 58403</div>
                 <p className="mt-xs font-body text-body-sm text-body leading-[1.65]">
-                  Email: <a href="mailto:support@builddreams.co.in" className="hover:text-ink">support@builddreams.co.in</a><br />
+                  Email: <a href="mailto:info@builddreams.co.in" className="hover:text-ink">info@builddreams.co.in</a><br />
                   Website: https://builddreams.co.in
                 </p>
               </div>
@@ -651,7 +651,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-content flex-col gap-md px-lg font-body text-body-sm text-body md:flex-row md:items-center md:justify-between lg:px-xl">
           <div className="max-w-3xl leading-[1.7]">
             <strong className="text-ink">Builddreams Technologies</strong> &middot; India &middot; UDYAM-MH-20-0340233 &middot;
-            Nagpur, Maharashtra, India &middot; Email: <a href="mailto:support@builddreams.co.in" className="hover:text-ink">support@builddreams.co.in</a> &middot; Website:
+            Nagpur, Maharashtra, India &middot; Email: <a href="mailto:info@builddreams.co.in" className="hover:text-ink">info@builddreams.co.in</a> &middot; Website:
             https://builddreams.co.in &middot; Phone: +91 97658 58403. Not affiliated with WhatsApp or Meta.
           </div>
           <div className="flex flex-wrap gap-md">
