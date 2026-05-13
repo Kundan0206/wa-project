@@ -101,7 +101,7 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json({
     success: true,
     data: {
-      token: sessionData?.properties?.hashed_id || authData.session?.access_token,
+      token: (sessionData as any)?.properties?.hashed_id || (authData as any).session?.access_token,
       user: { id: authData.user.id, email: authData.user.email!, name: data.name, role: 'owner' },
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug }
     }

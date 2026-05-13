@@ -50,6 +50,10 @@ export async function deleteFromSupabaseStorage(filePath: string): Promise<void>
 
 const META_API_URL = process.env.META_API_URL || 'https://graph.facebook.com/v19.0';
 
+async function readJson<T>(response: Response): Promise<T> {
+  return response.json() as Promise<T>;
+}
+
 export async function uploadToWhatsApp(accessToken: string, fileData: string | Buffer, fileType: string) {
   const formData = new FormData();
   const blob = new Blob([typeof fileData === 'string' ? Buffer.from(fileData, 'base64') : fileData]);
@@ -57,7 +61,7 @@ export async function uploadToWhatsApp(accessToken: string, fileData: string | B
   formData.append('type', fileType);
   formData.append('messaging_product', 'whatsapp');
 
-  const response = await fetch(`${META_API_URL}/v19.0/uploads`, {
+  const response = await fetch(`${META_API_URL}/uploads`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`
@@ -65,7 +69,7 @@ export async function uploadToWhatsApp(accessToken: string, fileData: string | B
     body: formData
   });
 
-  const data = await response.json();
+  const data = await readJson<{ error?: { message?: string }; id: string }>(response);
 
   if (data.error) {
     throw new Error(data.error.message);
@@ -87,7 +91,7 @@ export async function refreshWhatsAppMedia(accessToken: string, mediaId: string)
     }
   });
 
-  const data = await response.json();
+  const data = await readJson<{ error?: { message?: string }; id: string }>(response);
 
   if (data.error) {
     throw new Error(data.error.message);

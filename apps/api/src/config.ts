@@ -1,10 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = process.cwd();
 const envPath = path.resolve(rootDir, '.env');
 
 console.log('Looking for .env at:', envPath);

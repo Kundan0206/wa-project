@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from './auth.js';
 
 export async function tenantMiddleware(
@@ -14,7 +13,7 @@ export async function tenantMiddleware(
     return;
   }
 
-  const prisma = req.prisma as PrismaClient;
+  const prisma = (req as any).prisma as any;
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId }

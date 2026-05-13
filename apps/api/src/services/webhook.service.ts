@@ -69,7 +69,7 @@ async function handleStatusUpdate(status: any, db: any) {
   }
 }
 
-async function handleIncomingMessage(message: any, contacts: any[], phoneNumberId: string | undefined, db: any) {
+async function handleIncomingMessage(message: any, contacts: any[] = [], phoneNumberId: string | undefined, db: any) {
   const { data: phone } = await db
     .from('phone_numbers')
     .select('*, waba_accounts(*)')

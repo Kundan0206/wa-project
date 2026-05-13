@@ -1,10 +1,14 @@
 const META_API_URL = process.env.META_API_URL || 'https://graph.facebook.com/v19.0';
 
 export interface WhatsAppMessage {
-  messaging_product: string;
-  to: string;
+  messaging_product?: string;
+  to?: string;
   type: string;
   [key: string]: any;
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  return response.json() as Promise<T>;
 }
 
 export async function sendWhatsAppMessage(
@@ -18,10 +22,11 @@ export async function sendWhatsAppMessage(
     ? `${META_API_URL}/${wamid}/messages`
     : `${META_API_URL}/${phoneNumberId}/messages`;
 
+  const { messaging_product: _messagingProduct, to: _messageTo, ...messageBody } = message;
   const payload = {
     messaging_product: 'whatsapp',
     to,
-    ...message
+    ...messageBody
   };
 
   const response = await fetch(url, {
@@ -33,7 +38,7 @@ export async function sendWhatsAppMessage(
     body: JSON.stringify(payload)
   });
 
-  const data = await response.json();
+  const data = await readJson<{ error?: { message?: string } }>(response);
 
   if (data.error) {
     throw new Error(data.error.message);
@@ -71,14 +76,19 @@ export async function exchangeCodeForToken(code: string) {
     method: 'GET'
   });
 
-  const data = await response.json();
+  const data = await readJson<{ error?: { message?: string }; access_token: string }>(response);
 
   if (data.error) {
     throw new Error(data.error.message);
   }
 
   const meResponse = await fetch(`${META_API_URL}/me?fields=id,name,business_phone_number,timezone,currency&access_token=${data.access_token}`);
-  const meData = await meResponse.json();
+  const meData = await readJson<{
+    id: string;
+    name?: string;
+    currency?: string;
+    timezone?: string;
+  }>(meResponse);
 
   return {
     accessToken: data.access_token,
@@ -103,7 +113,7 @@ export async function registerPhoneNumber(
     body: JSON.stringify({ messaging_product: 'whatsapp', display_name: displayName })
   });
 
-  return response.json();
+  return readJson(response);
 }
 
 export async function getPhoneNumberQuality(accessToken: string, phoneNumberId: string) {
@@ -111,7 +121,7 @@ export async function getPhoneNumberQuality(accessToken: string, phoneNumberId: 
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
 
-  return response.json();
+  return readJson(response);
 }
 
 export async function createTemplate(
@@ -133,7 +143,7 @@ export async function createTemplate(
     body: JSON.stringify(template)
   });
 
-  const data = await response.json();
+  const data = await readJson<{ error?: { message?: string } }>(response);
 
   if (data.error) {
     throw new Error(data.error.message);
@@ -148,7 +158,7 @@ export async function deleteTemplate(accessToken: string, templateId: string) {
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
 
-  return response.json();
+  return readJson(response);
 }
 
 export async function getTemplateAnalytics(accessToken: string, templateId: string) {
@@ -156,7 +166,7 @@ export async function getTemplateAnalytics(accessToken: string, templateId: stri
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
 
-  const data = await response.json();
+  const data = await readJson<{ quality_score?: number; status?: string }>(response);
 
   return {
     qualityScore: data.quality_score || 0,
@@ -169,7 +179,7 @@ export async function downloadWhatsAppMedia(accessToken: string, mediaId: string
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
 
-  const data = await response.json();
+  const data = await readJson<{ url?: string }>(response);
 
   if (data.url) {
     const mediaResponse = await fetch(data.url, {
@@ -198,5 +208,5 @@ export async function subscribeToWebhooks(accessToken: string, phoneNumberId: st
     })
   });
 
-  return response.json();
+  return readJson(response);
 }
