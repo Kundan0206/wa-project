@@ -7,8 +7,9 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const isSupabaseConfigured = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,10 +20,17 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      setError('Authentication is not configured yet.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -86,9 +94,13 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-md">
-            {error && (
-              <div className="bg-error/10 text-error p-sm rounded-md text-body-sm">{error}</div>
+            {!isSupabaseConfigured && (
+              <div className="bg-error/10 text-error p-sm rounded-md text-body-sm">
+                Authentication is not configured yet. Add Supabase environment variables in Vercel.
+              </div>
             )}
+
+            {error && <div className="bg-error/10 text-error p-sm rounded-md text-body-sm">{error}</div>}
 
             <div>
               <label className="font-body text-caption text-muted mb-xs">Email</label>
@@ -116,7 +128,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isSupabaseConfigured}
               className="w-full btn-primary"
             >
               {loading ? 'Signing in...' : 'Sign In'}

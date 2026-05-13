@@ -7,8 +7,9 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const isSupabaseConfigured = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -18,10 +19,17 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      setError('Authentication is not configured yet.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -102,9 +110,13 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-md">
-            {error && (
-              <div className="bg-error/10 text-error p-sm rounded-md text-body-sm">{error}</div>
+            {!isSupabaseConfigured && (
+              <div className="bg-error/10 text-error p-sm rounded-md text-body-sm">
+                Authentication is not configured yet. Add Supabase environment variables in Vercel.
+              </div>
             )}
+
+            {error && <div className="bg-error/10 text-error p-sm rounded-md text-body-sm">{error}</div>}
 
             <div>
               <label className="font-body text-caption text-muted mb-xs">Full Name</label>
@@ -157,7 +169,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isSupabaseConfigured}
               className="w-full btn-primary"
             >
               {loading ? 'Creating account...' : 'Create Account'}
