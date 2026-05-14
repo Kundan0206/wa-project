@@ -117,8 +117,86 @@ export async function registerPhoneNumber(
 }
 
 export async function getPhoneNumberQuality(accessToken: string, phoneNumberId: string) {
-  const response = await fetch(`${META_API_URL}/${phoneNumberId}?fields=quality_score,status`, {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}?fields=quality_score,status,code_verification_status`, {
     headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  const data = await readJson<{ quality_score?: string; status?: string; code_verification_status?: string }>(response);
+
+  return {
+    qualityScore: data.quality_score?.toLowerCase() || 'na',
+    status: data.status,
+    codeVerificationStatus: data.code_verification_status
+  };
+}
+
+export async function getWabaPhoneNumbers(accessToken: string, wabaId: string) {
+  const response = await fetch(`${META_API_URL}/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,status,code_verification_status`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  const data = await readJson<{ data?: Array<{ id: string; display_phone_number: string; verified_name: string; quality_rating: string; status: string; code_verification_status: string }> }>(response);
+
+  return data.data || [];
+}
+
+export async function deregisterPhoneNumber(accessToken: string, phoneNumberId: string) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/deregister`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  return readJson(response);
+}
+
+export async function requestVerificationCode(accessToken: string, phoneNumberId: string, method: string = 'SMS', locale: string = 'en_US') {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/request_code`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ code_method: method, locale })
+  });
+
+  return readJson(response);
+}
+
+export async function verifyPhoneNumber(accessToken: string, phoneNumberId: string, code: string) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/verify_code`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ code })
+  });
+
+  return readJson(response);
+}
+
+export async function getPhoneNumberDetails(accessToken: string, phoneNumberId: string) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating,status,code_verification_status,name_status,certificate`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  return readJson(response);
+}
+
+export async function subscribeToPhoneWebhooks(accessToken: string, phoneNumberId: string, webhookUrl: string) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/webhooks`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      url: webhookUrl,
+      fields: ['messages', 'message_template_status_update', 'phone_number_quality_update']
+    })
   });
 
   return readJson(response);

@@ -1,7 +1,9 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest, requireRole, asyncHandler } from '../middleware/auth.js';
-import { exchangeCodeForToken } from '../services/whatsapp.service.js';
+import { exchangeCodeForToken, getPhoneNumberDetails } from '../services/whatsapp.service.js';
+
+const META_API_URL = process.env.META_API_URL || 'https://graph.facebook.com/v19.0';
 
 const router = Router();
 
@@ -90,5 +92,49 @@ router.delete('/:id', authenticate, requireRole('owner', 'admin'), asyncHandler(
 
   res.json({ success: true, message: 'WABA account disconnected' });
 }));
+
+router.get('/callback', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { code, error: oauthError, error_description } = req.query;
+
+  if (oauthError) {
+    res.redirect(`/dashboard/whatsapp?error=${oauthError}&message=${error_description}`);
+    return;
+  }
+
+  if (code) {
+    res.redirect(`/dashboard/whatsapp?code=${code}`);
+    return;
+  }
+
+  res.redirect('/dashboard/whatsapp?error=no_code');
+}));
+
+router.get('/meta-details/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const { id } = req.params;
+
+  const { data: waba, error } = await supabase
+    .from('waba_accounts')
+    .select('*')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (error || !waba) {
+    res.status(404).json({ error: 'WABA account not found' });
+    return;
+  }
+
+  const response = await fetch(`${META_API_URL}/${waba.waba_id}?fields=id,name,timezone_id,message_template_namespace,currency`, {
+    headers: { 'Authorization': `Bearer ${waba.access_token}` }
+  });
+
+  const data = await response.json();
+  res.json({ success: true, data });
+}));
+
+async function readJson<T>(response: Response): Promise<T> {
+  return (await response.json()) as T;
+}
 
 export default router;

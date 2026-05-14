@@ -81,6 +81,76 @@ export function usePhoneNumbers() {
   });
 }
 
+export function useSyncPhoneNumbers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<ApiResponse<PhoneNumber[]>>('/api/v1/phone-numbers/sync'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['phone-numbers'] });
+      qc.invalidateQueries({ queryKey: ['waba'] });
+    },
+  });
+}
+
+export function useRegisterPhoneNumber() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, pin, displayName }: { id: string; pin?: string; displayName?: string }) =>
+      api.post<ApiResponse<void>>(`/api/v1/phone-numbers/register/${id}`, { pin, display_name: displayName }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['phone-numbers'] });
+    },
+  });
+}
+
+export function useDeregisterPhoneNumber() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<ApiResponse<void>>(`/api/v1/phone-numbers/deregister/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['phone-numbers'] });
+    },
+  });
+}
+
+export function usePhoneNumberDetails(id: string) {
+  return useQuery({
+    queryKey: ['phone-numbers', id, 'details'],
+    queryFn: () => api.get<ApiResponse<any>>(`/api/v1/phone-numbers/details/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useRequestVerificationCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, method }: { id: string; method?: string }) =>
+      api.post<ApiResponse<any>>(`/api/v1/phone-numbers/request-code/${id}`, { method }),
+  });
+}
+
+export function useVerifyPhoneCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, code }: { id: string; code: string }) =>
+      api.post<ApiResponse<any>>(`/api/v1/phone-numbers/verify-code/${id}`, { code }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['phone-numbers'] });
+    },
+  });
+}
+
+export function useSubscribeWebhooks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, url }: { id: string; url: string }) =>
+      api.post<ApiResponse<any>>(`/api/v1/phone-numbers/subscribe-webhooks/${id}`, { url }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['phone-numbers'] });
+    },
+  });
+}
+
 // Inbox / Conversations
 export function useConversations(
   params?: { status?: string; assigned_to?: string; page?: string; limit?: string }
