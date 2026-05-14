@@ -1,32 +1,35 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
-
-const mockTemplates = [
-  { id: '1', name: 'order_shipped', category: 'UTILITY', language: 'en', status: 'APPROVED', components: ['HEADER', 'BODY', 'BUTTONS'], used: 1250 },
-  { id: '2', name: 'welcome_message', category: 'MARKETING', language: 'en', status: 'APPROVED', components: ['HEADER', 'BODY'], used: 890 },
-  { id: '3', name: 'otp_verification', category: 'AUTHENTICATION', language: 'en', status: 'APPROVED', components: ['BODY'], used: 3200 },
-  { id: '4', name: 'flash_sale', category: 'MARKETING', language: 'en', status: 'PENDING', components: ['HEADER', 'BODY', 'FOOTER', 'BUTTONS'], used: 0 },
-  { id: '5', name: 'product_update', category: 'UTILITY', language: 'en', status: 'REJECTED', components: ['HEADER', 'BODY'], used: 0, reason: 'Contains promotional content in header' },
-];
+import { Plus, Search, Eye, Trash2 } from 'lucide-react';
+import { useTemplates, useDeleteTemplate } from '../../../lib/hooks';
 
 const statusColors: Record<string, string> = {
-  APPROVED: 'bg-success/10 text-success',
-  PENDING: 'bg-gradient-peach/20 text-body-strong',
-  REJECTED: 'bg-error/10 text-error',
-  PAUSED: 'bg-hairline-soft text-muted'
+  approved: 'bg-success/10 text-success',
+  pending: 'bg-gradient-peach/20 text-body-strong',
+  rejected: 'bg-error/10 text-error',
+  paused: 'bg-hairline-soft text-muted'
 };
 
 const categoryColors: Record<string, string> = {
-  MARKETING: 'bg-gradient-lavender/20 text-body-strong',
-  UTILITY: 'bg-primary/10 text-primary',
-  AUTHENTICATION: 'bg-gradient-peach/20 text-body-strong'
+  marketing: 'bg-gradient-lavender/20 text-body-strong',
+  utility: 'bg-primary/10 text-primary',
+  authentication: 'bg-gradient-peach/20 text-body-strong'
 };
 
 export default function TemplatesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const { data: templatesRes, isLoading } = useTemplates(
+    statusFilter !== 'all' ? { status: statusFilter } : undefined
+  );
+  const deleteTemplate = useDeleteTemplate();
+
+  const templates = templatesRes?.data || [];
+
+  const filtered = searchTerm
+    ? templates.filter((t) => t.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    : templates;
 
   return (
     <div className="p-section min-h-screen bg-canvas">
@@ -55,7 +58,7 @@ export default function TemplatesPage() {
               />
             </div>
             <div className="flex space-x-sm">
-              {['all', 'APPROVED', 'PENDING', 'REJECTED'].map((status) => (
+                  {['all', 'approved', 'pending', 'rejected'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
@@ -67,50 +70,68 @@ export default function TemplatesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md p-md">
-            {mockTemplates.map((template) => (
-              <div key={template.id} className="border border-hairline rounded-xl p-md hover:shadow-soft transition">
-                <div className="flex items-start justify-between mb-sm">
-                  <div>
-                    <h3 className="font-body text-title-sm text-ink">{template.name}</h3>
-                    <div className="flex items-center space-x-sm mt-xs">
-                      <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${categoryColors[template.category]}`}>
-                        {template.category}
-                      </span>
-                      <span className="font-body text-caption text-muted-soft">{template.language}</span>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md p-md">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="border border-hairline rounded-xl p-md animate-pulse">
+                  <div className="h-5 w-32 bg-hairline-soft rounded mb-3" />
+                  <div className="h-4 w-20 bg-hairline-soft rounded mb-3" />
+                  <div className="h-8 w-full bg-hairline-soft rounded" />
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-lg text-muted font-body text-body-md">No templates found</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md p-md">
+              {filtered.map((template) => (
+                <div key={template.id} className="border border-hairline rounded-xl p-md hover:shadow-soft transition">
+                  <div className="flex items-start justify-between mb-sm">
+                    <div>
+                      <h3 className="font-body text-title-sm text-ink">{template.name}</h3>
+                      <div className="flex items-center space-x-sm mt-xs">
+                        <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${categoryColors[template.category] || categoryColors.utility}`}>
+                          {template.category}
+                        </span>
+                        <span className="font-body text-caption text-muted-soft">{template.language}</span>
+                      </div>
+                    </div>
+                    <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[template.status] || statusColors.PENDING}`}>
+                      {template.status}
+                    </span>
+                  </div>
+
+                  <div className="mb-sm">
+                    <div className="font-body text-caption text-muted mb-xs">Components</div>
+                    <div className="flex flex-wrap gap-xs">
+                      {(template.components || []).map((comp: any, i: number) => (
+                        <span key={i} className="font-body text-caption bg-hairline-soft text-body px-sm py-xxs rounded">{comp.type}</span>
+                      ))}
                     </div>
                   </div>
-                  <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[template.status]}`}>
-                    {template.status}
-                  </span>
-                </div>
 
-                <div className="mb-sm">
-                  <div className="font-body text-caption text-muted mb-xs">Components</div>
-                  <div className="flex flex-wrap gap-xs">
-                    {template.components.map((comp, i) => (
-                      <span key={i} className="font-body text-caption bg-hairline-soft text-body px-sm py-xxs rounded">{comp}</span>
-                    ))}
+                  {template.status === 'rejected' && template.rejectionReason && (
+                    <div className="font-body text-caption text-error bg-error/10 p-sm rounded mb-sm">
+                      {template.rejectionReason}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <span className="font-body text-caption text-muted">{template.qualityScore ? `${template.qualityScore}/10` : 'N/A'}</span>
+                    <div className="flex space-x-xs">
+                      <button className="p-xs hover:bg-hairline-soft rounded-md transition"><Eye className="w-4 h-4 text-muted" /></button>
+                      <button
+                        onClick={() => deleteTemplate.mutate(template.id)}
+                        className="p-xs hover:bg-hairline-soft rounded-md transition"
+                      >
+                        <Trash2 className="w-4 h-4 text-muted" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {template.status === 'REJECTED' && template.reason && (
-                  <div className="font-body text-caption text-error bg-error/10 p-sm rounded mb-sm">
-                    {template.reason}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <span className="font-body text-caption text-muted">{template.used} sends</span>
-                  <div className="flex space-x-xs">
-                    <button className="p-xs hover:bg-hairline-soft rounded-md transition"><Eye className="w-4 h-4 text-muted" /></button>
-                    <button className="p-xs hover:bg-hairline-soft rounded-md transition"><Edit className="w-4 h-4 text-muted" /></button>
-                    <button className="p-xs hover:bg-hairline-soft rounded-md transition"><Trash2 className="w-4 h-4 text-muted" /></button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,16 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useBusinessProfile, useUpdateBusinessProfile } from '../../../lib/hooks';
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    businessName: 'My Company',
-    businessEmail: 'contact@example.com',
-    businessPhone: '+1 234 567 8900',
-    businessAddress: '123 Business St, City, State 12345',
+  const { data: profileRes, isLoading } = useBusinessProfile();
+  const updateProfile = useUpdateBusinessProfile();
+
+  const [form, setForm] = useState({
+    businessName: '',
+    businessEmail: '',
+    businessPhone: '',
+    businessAddress: '',
     notificationEmail: true,
-    notificationSms: false
+    notificationSms: false,
   });
+
+  useEffect(() => {
+    const d = profileRes?.data;
+    if (d) {
+      setForm((prev) => ({
+        ...prev,
+        businessName: d.business_name || '',
+        businessEmail: d.business_email || '',
+        businessPhone: d.business_phone || '',
+        businessAddress: d.business_address || '',
+      }));
+    }
+  }, [profileRes]);
+
+  const handleSave = async () => {
+    updateProfile.mutate({
+      business_name: form.businessName,
+      business_email: form.businessEmail,
+      business_phone: form.businessPhone,
+      business_address: form.businessAddress,
+    });
+  };
 
   return (
     <div className="p-section max-w-3xl">
@@ -19,44 +45,52 @@ export default function SettingsPage() {
       <div className="space-y-lg">
         <div className="bg-surface-card border border-hairline rounded-xl p-lg">
           <h2 className="font-display text-display-sm text-ink mb-md">Business Profile</h2>
-          <div className="space-y-md">
-            <div>
-              <label className="font-body text-caption text-muted mb-xs">Business Name</label>
-              <input
-                type="text"
-                value={settings.businessName}
-                onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
-                className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
-              />
+          {isLoading ? (
+            <div className="space-y-md">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-11 bg-hairline-soft rounded animate-pulse" />
+              ))}
             </div>
-            <div>
-              <label className="font-body text-caption text-muted mb-xs">Email</label>
-              <input
-                type="email"
-                value={settings.businessEmail}
-                onChange={(e) => setSettings({ ...settings, businessEmail: e.target.value })}
-                className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
-              />
+          ) : (
+            <div className="space-y-md">
+              <div>
+                <label className="font-body text-caption text-muted mb-xs">Business Name</label>
+                <input
+                  type="text"
+                  value={form.businessName}
+                  onChange={(e) => setForm({ ...form, businessName: e.target.value })}
+                  className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
+                />
+              </div>
+              <div>
+                <label className="font-body text-caption text-muted mb-xs">Email</label>
+                <input
+                  type="email"
+                  value={form.businessEmail}
+                  onChange={(e) => setForm({ ...form, businessEmail: e.target.value })}
+                  className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
+                />
+              </div>
+              <div>
+                <label className="font-body text-caption text-muted mb-xs">Phone</label>
+                <input
+                  type="tel"
+                  value={form.businessPhone}
+                  onChange={(e) => setForm({ ...form, businessPhone: e.target.value })}
+                  className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
+                />
+              </div>
+              <div>
+                <label className="font-body text-caption text-muted mb-xs">Address</label>
+                <textarea
+                  value={form.businessAddress}
+                  onChange={(e) => setForm({ ...form, businessAddress: e.target.value })}
+                  rows={2}
+                  className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm focus:outline-none focus:border-2 focus:border-primary transition resize-y"
+                />
+              </div>
             </div>
-            <div>
-              <label className="font-body text-caption text-muted mb-xs">Phone</label>
-              <input
-                type="tel"
-                value={settings.businessPhone}
-                onChange={(e) => setSettings({ ...settings, businessPhone: e.target.value })}
-                className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
-              />
-            </div>
-            <div>
-              <label className="font-body text-caption text-muted mb-xs">Address</label>
-              <textarea
-                value={settings.businessAddress}
-                onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
-                rows={2}
-                className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink pl-md pr-sm py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="bg-surface-card border border-hairline rounded-xl p-lg">
@@ -66,8 +100,8 @@ export default function SettingsPage() {
               <span className="font-body text-caption text-muted">Email notifications</span>
               <input
                 type="checkbox"
-                checked={settings.notificationEmail}
-                onChange={(e) => setSettings({ ...settings, notificationEmail: e.target.checked })}
+                checked={form.notificationEmail}
+                onChange={(e) => setForm({ ...form, notificationEmail: e.target.checked })}
                 className="w-5 h-5 rounded border border-hairline-strong text-primary focus:border-2 focus:border-primary"
               />
             </label>
@@ -75,8 +109,8 @@ export default function SettingsPage() {
               <span className="font-body text-caption text-muted">SMS notifications</span>
               <input
                 type="checkbox"
-                checked={settings.notificationSms}
-                onChange={(e) => setSettings({ ...settings, notificationSms: e.target.checked })}
+                checked={form.notificationSms}
+                onChange={(e) => setForm({ ...form, notificationSms: e.target.checked })}
                 className="w-5 h-5 rounded border border-hairline-strong text-primary focus:border-2 focus:border-primary"
               />
             </label>
@@ -98,8 +132,12 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex justify-end space-x-sm">
-          <button className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill hover:bg-primary-active transition">
-            Save Changes
+          <button
+            onClick={handleSave}
+            disabled={updateProfile.isPending}
+            className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill hover:bg-primary-active transition disabled:opacity-50"
+          >
+            {updateProfile.isPending ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>

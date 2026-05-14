@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import { useAuthStore } from '../../../lib/store';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -13,6 +14,7 @@ const isSupabaseConfigured = Boolean(
 
 export default function LoginPage() {
   const router = useRouter();
+  const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,19 +56,22 @@ export default function LoginPage() {
         console.error('User fetch error:', userError);
       }
 
-      localStorage.setItem('supabase_token', data.session?.access_token || '');
-      localStorage.setItem('user', JSON.stringify({
+      const user = {
         id: data.user.id,
-        email: data.user.email,
-        name: userData?.name || data.user.email?.split('@')[0],
+        email: data.user.email || '',
+        name: userData?.name || data.user.email?.split('@')[0] || '',
         role: userData?.role || 'admin',
-        tenantId: userData?.tenant_id
-      }));
-      localStorage.setItem('tenant', JSON.stringify({
-        id: userData?.tenant_id,
-        name: userData?.tenants?.name,
-        slug: userData?.tenants?.slug
-      }));
+        tenantId: userData?.tenant_id || '',
+      };
+
+      const tenant = {
+        id: userData?.tenant_id || '',
+        name: userData?.tenants?.name || '',
+        slug: userData?.tenants?.slug || '',
+      };
+
+      const token = data.session?.access_token || '';
+      setAuth(user, tenant, token);
 
       router.push('/dashboard');
     } catch (err: any) {
