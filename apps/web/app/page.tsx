@@ -18,7 +18,7 @@ export default function HomePage() {
             <Link href="#compliance" className="hover:text-ink">Compliance</Link>
             <Link href="#integrations" className="hover:text-ink">Integrations</Link>
           </nav>
-          <Link href="/contact" className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill inline-flex items-center gap-xs hover:bg-primary-active transition">
+          <Link href="/auth/login" className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill inline-flex items-center gap-xs hover:bg-primary-active transition">
             Start WhatsApp Setup <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
