@@ -94,19 +94,20 @@ router.delete('/:id', authenticate, requireRole('owner', 'admin'), asyncHandler(
 }));
 
 router.get('/callback', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://builddreams.co.in';
   const { code, error: oauthError, error_description } = req.query;
 
   if (oauthError) {
-    res.redirect(`/dashboard/whatsapp?error=${oauthError}&message=${error_description}`);
+    res.redirect(`${frontendUrl}/dashboard/whatsapp?error=${oauthError}&message=${error_description}`);
     return;
   }
 
   if (code) {
-    res.redirect(`/dashboard/whatsapp?code=${code}`);
+    res.redirect(`${frontendUrl}/dashboard/whatsapp?code=${code}`);
     return;
   }
 
-  res.redirect('/dashboard/whatsapp?error=no_code');
+  res.redirect(`${frontendUrl}/dashboard/whatsapp?error=no_code`);
 }));
 
 router.get('/meta-details/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
