@@ -94,7 +94,7 @@ router.delete('/:id', authenticate, requireRole('owner', 'admin'), asyncHandler(
 }));
 
 router.get('/callback', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://builddreams.co.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://wa.builddreams.co.in';
   const { code, error: oauthError, error_description } = req.query;
 
   if (oauthError) {
