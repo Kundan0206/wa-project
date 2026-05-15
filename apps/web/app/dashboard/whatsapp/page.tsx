@@ -75,7 +75,11 @@ function WhatsAppContent() {
       window.history.replaceState({}, '', '/dashboard/whatsapp');
     }
     if (embeddedCode || embeddedToken) {
-      handleEmbeddedSignupCallback(embeddedCode, embeddedToken);
+      if (embeddedCode) {
+        handleEmbeddedSignupCallback(embeddedCode);
+      } else if (embeddedToken) {
+        handleEmbeddedSignupCallback(embeddedToken);
+      }
       window.history.replaceState({}, '', '/dashboard/whatsapp');
     }
     if (error) {
@@ -83,34 +87,26 @@ function WhatsAppContent() {
     }
   }, [searchParams]);
 
-  const handleEmbeddedSignupCallback = async (code: string | null, token: string | null) => {
-    if (token) {
-      try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-callback`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ accessToken: token })
-        });
-        setCodeSuccess('New WhatsApp account created successfully!');
-        refetch();
-      } catch (err: any) {
-        setCodeError(err.message || 'Failed to create WhatsApp account');
-      }
-    } else if (code) {
-      try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-callback?code=${code}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        setCodeSuccess('New WhatsApp account created successfully!');
-        refetch();
-      } catch (err: any) {
-        setCodeError(err.message || 'Failed to create WhatsApp account');
-      }
+  const [wabaPhoneData, setWabaPhoneData] = useState<any>(null);
+
+  const handleEmbeddedSignupCallback = async (code: string, wabaId?: string, phoneId?: string) => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-callback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ 
+          code,
+          wabaId: wabaId || wabaPhoneData?.wabaId,
+          phoneId: phoneId || wabaPhoneData?.phoneId
+        })
+      });
+      setCodeSuccess('New WhatsApp account created successfully!');
+      refetch();
+    } catch (err: any) {
+      setCodeError(err.message || 'Failed to create WhatsApp account');
     }
   };
 
@@ -121,11 +117,10 @@ function WhatsAppContent() {
       window.fbAsyncInit = function() {
         window.FB.init({
           appId: appId,
-          cookie: true,
+          autoLogAppEvents: true,
           xfbml: true,
-          version: 'v19.0'
+          version: 'v25.0'
         });
-        window.FB.AppEvents.logPageView();
         setEmbeddedSignupLoaded(true);
       };
 
@@ -134,46 +129,38 @@ function WhatsAppContent() {
         if (d.getElementById(id)) return;
         js = d.createElement(s) as HTMLScriptElement;
         js.id = id;
-        js.src = "https://connect.facebook.com/en_US/sdk.js";
+        js.src = "https://connect.facebook.net/en_US/sdk.js";
         fjs.parentNode?.insertBefore(js, fjs);
       }(document, 'script', 'facebook-jssdk'));
+
+      window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'WA_EMBEDDED_SIGNUP_SESSION') {
+          setWabaPhoneData({
+            wabaId: event.data.waba_id,
+            phoneId: event.data.phone_id,
+            phoneNumber: event.data.phone_number
+          });
+        }
+      });
     }
   }, []);
 
-  const startEmbeddedSignup = async () => {
-    const configId = '2026748608261800';
-    const redirectUri = `${window.location.origin}/dashboard/whatsapp`;
-    
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-signup-config`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+  const startEmbeddedSignup = () => {
+    if (typeof window !== 'undefined' && window.FB) {
+      window.FB.login((response: any) => {
+        if (response.authResponse && response.authResponse.code) {
+          handleEmbeddedSignupCallback(response.authResponse.code);
         }
+      }, {
+        config_id: '2026748608261800',
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: { "version": "v25.0" }
       });
-      const data = await response.json();
-      
-      if (typeof window !== 'undefined' && (window as any).FB) {
-        (window as any).FB.login((response: any) => {
-          if (response.authResponse) {
-            const code = response.authResponse.code;
-            if (code) {
-              handleEmbeddedSignupCallback(code, null);
-            } else if (response.authResponse.accessToken) {
-              handleEmbeddedSignupCallback(null, response.authResponse.accessToken);
-            }
-          }
-        }, {
-          config_id: configId,
-          override_default_response_type: 'code',
-          redirect_uri: redirectUri
-        });
-      }
-    } catch (err) {
-      console.error('Embedded signup error:', err);
-      setCodeError('Failed to start Embedded Signup. Please try again.');
+    } else {
+      setCodeError('Facebook SDK not loaded. Please refresh and try again.');
     }
   };
-
   const handleConnectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authCode.trim()) {
