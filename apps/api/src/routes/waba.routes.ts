@@ -112,14 +112,37 @@ router.get('/callback', asyncHandler(async (req: AuthRequest, res: Response) => 
 
 router.post('/embedded-callback', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { accessToken } = req.body;
+  const code = req.query.code as string;
   
-  if (!accessToken) {
-    res.status(400).json({ error: 'Access token is required' });
+  let token = accessToken;
+  
+  if (code && !token) {
+    const exchangeResponse = await fetch(`${META_API_URL}/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.META_APP_ID || '',
+        client_secret: process.env.META_APP_SECRET || '',
+        redirect_uri: `${process.env.FRONTEND_URL}/dashboard/whatsapp`,
+        code
+      })
+    });
+    const exchangeData = await exchangeResponse.json() as any;
+    token = exchangeData.access_token;
+    
+    if (!token) {
+      res.status(400).json({ error: 'Failed to exchange code for token', details: exchangeData });
+      return;
+    }
+  }
+  
+  if (!token) {
+    res.status(400).json({ error: 'Access token or code is required' });
     return;
   }
 
   try {
-    const debugResponse = await fetch(`${META_API_URL}/debug_token?input_token=${accessToken}`, {
+    const debugResponse = await fetch(`${META_API_URL}/debug_token?input_token=${token}`, {
       headers: { 'Authorization': `Bearer ${process.env.META_SYSTEM_USER_TOKEN}` }
     });
     const debugData = await debugResponse.json() as any;
@@ -133,7 +156,7 @@ router.post('/embedded-callback', authenticate, asyncHandler(async (req: AuthReq
 
     for (const wabaId of wabaIds) {
       const wabaResponse = await fetch(`${META_API_URL}/${wabaId}?fields=id,name,timezone_id,message_template_namespace,currency`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const wabaData = await wabaResponse.json() as any;
 

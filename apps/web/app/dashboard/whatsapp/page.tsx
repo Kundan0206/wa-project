@@ -155,11 +155,16 @@ function WhatsAppContent() {
       if (typeof window !== 'undefined' && (window as any).FB) {
         (window as any).FB.login((response: any) => {
           if (response.authResponse) {
-            handleEmbeddedSignupCallback(null, response.authResponse.accessToken);
+            const code = response.authResponse.code;
+            if (code) {
+              handleEmbeddedSignupCallback(code, null);
+            } else if (response.authResponse.accessToken) {
+              handleEmbeddedSignupCallback(null, response.authResponse.accessToken);
+            }
           }
         }, {
           config_id: configId,
-          override_default_response_type: 'code,token',
+          override_default_response_type: 'code',
           redirect_uri: redirectUri
         });
       }
