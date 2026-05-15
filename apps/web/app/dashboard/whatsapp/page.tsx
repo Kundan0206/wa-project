@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Trash2, RefreshCw, Settings, Phone, CheckCircle, AlertCircle, Send, X } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Settings, Phone, CheckCircle, AlertCircle, Send, X, Sparkles } from 'lucide-react';
+
+declare global {
+  interface Window {
+    fbAsyncInit: () => void;
+    FB: any;
+  }
+}
 import { 
   useWabaAccounts, useDisconnectWaba, usePhoneNumbers, useConnectWaba, 
   useSyncPhoneNumbers, useRegisterPhoneNumber, useDeregisterPhoneNumber,
@@ -30,6 +37,7 @@ const statusLabels: Record<string, string> = {
 function WhatsAppContent() {
   const searchParams = useSearchParams();
   const [showConnect, setShowConnect] = useState(false);
+  const [showAddNumber, setShowAddNumber] = useState(false);
   const [authCode, setAuthCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [codeSuccess, setCodeSuccess] = useState('');
@@ -38,6 +46,8 @@ function WhatsAppContent() {
   const [selectedPhoneId, setSelectedPhoneId] = useState<string | null>(null);
   const [registerPin, setRegisterPin] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
+  const [embeddedSignupLoaded, setEmbeddedSignupLoaded] = useState(false);
+  const fbRef = useRef<any>(null);
 
   const { data: wabaRes, isLoading: wabaLoading, refetch } = useWabaAccounts();
   const { data: phoneRes, refetch: refetchPhones } = usePhoneNumbers();
@@ -56,16 +66,108 @@ function WhatsAppContent() {
     const code = searchParams.get('code');
     const error = searchParams.get('error');
     const message = searchParams.get('message');
+    const embeddedCode = searchParams.get('embedded_code');
+    const embeddedToken = searchParams.get('access_token');
 
     if (code) {
       setAuthCode(code);
       setShowConnect(true);
       window.history.replaceState({}, '', '/dashboard/whatsapp');
     }
+    if (embeddedCode || embeddedToken) {
+      handleEmbeddedSignupCallback(embeddedCode, embeddedToken);
+      window.history.replaceState({}, '', '/dashboard/whatsapp');
+    }
     if (error) {
       setCodeError(message || 'OAuth error');
     }
   }, [searchParams]);
+
+  const handleEmbeddedSignupCallback = async (code: string | null, token: string | null) => {
+    if (token) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-callback`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ accessToken: token })
+        });
+        setCodeSuccess('New WhatsApp account created successfully!');
+        refetch();
+      } catch (err: any) {
+        setCodeError(err.message || 'Failed to create WhatsApp account');
+      }
+    } else if (code) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-callback?code=${code}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setCodeSuccess('New WhatsApp account created successfully!');
+        refetch();
+      } catch (err: any) {
+        setCodeError(err.message || 'Failed to create WhatsApp account');
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !fbRef.current) {
+      const appId = process.env.NEXT_PUBLIC_META_APP_ID || '1198923135565390';
+      
+      window.fbAsyncInit = function() {
+        window.FB.init({
+          appId: appId,
+          cookie: true,
+          xfbml: true,
+          version: 'v19.0'
+        });
+        window.FB.AppEvents.logPageView();
+        setEmbeddedSignupLoaded(true);
+      };
+
+      (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) return;
+        js = d.createElement(s) as HTMLScriptElement;
+        js.id = id;
+        js.src = "https://connect.facebook.com/en_US/sdk.js";
+        fjs.parentNode?.insertBefore(js, fjs);
+      }(document, 'script', 'facebook-jssdk'));
+    }
+  }, []);
+
+  const startEmbeddedSignup = async () => {
+    const configId = '2026748608261800';
+    const redirectUri = `${window.location.origin}/dashboard/whatsapp`;
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-signup-config`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      
+      if (typeof window !== 'undefined' && (window as any).FB) {
+        (window as any).FB.login((response: any) => {
+          if (response.authResponse) {
+            handleEmbeddedSignupCallback(null, response.authResponse.accessToken);
+          }
+        }, {
+          config_id: configId,
+          override_default_response_type: 'code,token',
+          redirect_uri: redirectUri
+        });
+      }
+    } catch (err) {
+      console.error('Embedded signup error:', err);
+      setCodeError('Failed to start Embedded Signup. Please try again.');
+    }
+  };
 
   const handleConnectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,13 +268,22 @@ function WhatsAppContent() {
             <h1 className="font-display text-display-md text-ink">WhatsApp Accounts</h1>
             <p className="font-body text-body-md text-muted mt-xs">Connect and manage your WhatsApp Business API</p>
           </div>
-          <button
-            onClick={() => setShowConnect(true)}
-            className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:bg-primary-active transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Connect WABA</span>
-          </button>
+          <div className="flex items-center space-x-sm">
+            <button
+              onClick={() => setShowAddNumber(true)}
+              className="bg-gradient-mint text-canvas-deep font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:opacity-90 transition"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Add Number</span>
+            </button>
+            <button
+              onClick={() => setShowConnect(true)}
+              className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:bg-primary-active transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Connect WABA</span>
+            </button>
+          </div>
         </div>
 
         {wabaLoading ? (
@@ -425,6 +536,52 @@ function WhatsAppContent() {
                   className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
                 >
                   {codeSuccess ? 'Done' : 'Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Number Modal - Embedded Signup */}
+        {showAddNumber && (
+          <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
+            <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft">
+              <div className="flex items-center justify-between mb-md">
+                <h2 className="font-display text-display-md text-ink">Add New WhatsApp Number</h2>
+                <button onClick={() => setShowAddNumber(false)} className="p-xs hover:bg-hairline-soft rounded">
+                  <X className="w-5 h-5 text-muted" />
+                </button>
+              </div>
+              
+              <div className="bg-gradient-mint/20 border border-hairline rounded-lg p-md mb-md">
+                <div className="flex items-center gap-sm mb-sm">
+                  <Sparkles className="w-5 h-5 text-canvas-deep" />
+                  <span className="font-body text-title-sm text-ink">Create New WhatsApp Business Account</span>
+                </div>
+                <p className="font-body text-body-sm text-muted mb-sm">
+                  This will open Meta'sEmbedded Signup flow to create a new WhatsApp Business Account and connect a phone number.
+                </p>
+                <ul className="font-body text-body-sm text-muted list-disc list-inside space-y-xs">
+                  <li>Create a new WhatsApp Business Account</li>
+                  <li>Add and verify a phone number</li>
+                  <li>Set up your business profile</li>
+                </ul>
+              </div>
+
+              <div className="flex space-x-sm">
+                <button
+                  onClick={startEmbeddedSignup}
+                  disabled={!embeddedSignupLoaded}
+                  className="flex-1 bg-gradient-mint text-canvas-deep font-body text-button h-10 rounded-pill hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center space-x-xs"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{embeddedSignupLoaded ? 'Start Embedded Signup' : 'Loading...'}</span>
+                </button>
+                <button
+                  onClick={() => setShowAddNumber(false)}
+                  className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
+                >
+                  Cancel
                 </button>
               </div>
             </div>

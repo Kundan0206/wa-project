@@ -110,6 +110,72 @@ router.get('/callback', asyncHandler(async (req: AuthRequest, res: Response) => 
   res.redirect(`${frontendUrl}/dashboard/whatsapp?error=no_code`);
 }));
 
+router.post('/embedded-callback', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { accessToken } = req.body;
+  
+  if (!accessToken) {
+    res.status(400).json({ error: 'Access token is required' });
+    return;
+  }
+
+  try {
+    const debugResponse = await fetch(`${META_API_URL}/debug_token?input_token=${accessToken}`, {
+      headers: { 'Authorization': `Bearer ${process.env.META_SYSTEM_USER_TOKEN}` }
+    });
+    const debugData = await debugResponse.json() as any;
+
+    if (!debugData.data?.is_valid) {
+      res.status(400).json({ error: 'Invalid access token' });
+      return;
+    }
+
+    const wabaIds = debugData.data.granular_scopes?.find((s: any) => s.scope === 'whatsapp_business_management')?.target_ids || [];
+
+    for (const wabaId of wabaIds) {
+      const wabaResponse = await fetch(`${META_API_URL}/${wabaId}?fields=id,name,timezone_id,message_template_namespace,currency`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const wabaData = await wabaResponse.json() as any;
+
+      if (wabaData.id) {
+        const supabase = req.supabase!;
+        
+        const { data: existing } = await supabase
+          .from('waba_accounts')
+          .select('id')
+          .eq('waba_id', wabaId)
+          .eq('tenant_id', req.tenantId)
+          .single();
+
+        if (!existing) {
+          await supabase.from('waba_accounts').insert({
+            tenant_id: req.tenantId,
+            waba_id: wabaId,
+            waba_name: wabaData.name || 'New WhatsApp Business',
+            currency: wabaData.currency || 'USD',
+            timezone: wabaData.timezone_id || '1',
+            access_token: accessToken,
+            status: 'active'
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'WhatsApp Business Account created successfully', wabaIds });
+  } catch (error: any) {
+    console.error('Embedded signup error:', error);
+    res.status(500).json({ error: error.message || 'Failed to process Embedded Signup' });
+  }
+}));
+
+router.get('/embedded-signup-config', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  res.json({
+    success: true,
+    configId: process.env.META_EMBEDDED_SIGNUP_CONFIG_ID || '2026748608261800',
+    appId: process.env.META_APP_ID
+  });
+}));
+
 router.get('/meta-details/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const supabase = req.supabase!;
   const { id } = req.params;
