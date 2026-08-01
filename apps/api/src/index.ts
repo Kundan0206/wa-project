@@ -7,6 +7,7 @@ import { rateLimit } from 'express-rate-limit';
 import { supabase } from './lib/supabase.js';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { camelCaseResponses } from './middleware/camelCase.js';
 import { setupSocketIO } from './services/socket.service.js';
 import { connectQueues } from './queue/index.js';
 
@@ -50,7 +51,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/v1', routes);
+app.use('/api/v1', camelCaseResponses, routes);
 
 app.use(errorHandler);
 
