@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest, requireRole, asyncHandler } from '../middleware/auth.js';
-import { listAccessibleWabas, getPhoneNumberDetails } from '../services/whatsapp.service.js';
+import { listAccessibleWabas, getPhoneNumberDetails, subscribeAppToWaba } from '../services/whatsapp.service.js';
 
 const META_API_URL = process.env.META_API_URL || 'https://graph.facebook.com/v19.0';
 
@@ -123,6 +123,15 @@ router.post('/embedded-callback', authenticate, asyncHandler(async (req: AuthReq
         });
       }
 
+      // Without this, Meta has nowhere to route the WABA's events - the
+      // app-level webhook URL alone is not enough, each WABA must also be
+      // subscribed to this app.
+      try {
+        await subscribeAppToWaba(token, waba.wabaId);
+      } catch (err: any) {
+        console.error(`Failed to subscribe app to WABA ${waba.wabaId}:`, err.message);
+      }
+
       connected.push(waba.wabaId);
     }
 
@@ -134,6 +143,34 @@ router.post('/embedded-callback', authenticate, asyncHandler(async (req: AuthReq
   } catch (error: any) {
     console.error('Embedded signup error:', error);
     res.status(500).json({ error: error.message || 'Failed to process Embedded Signup' });
+  }
+}));
+
+router.post('/:id/subscribe', authenticate, requireRole('owner', 'admin'), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const { id } = req.params;
+
+  const { data: waba, error } = await supabase
+    .from('waba_accounts')
+    .select('waba_id, access_token')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (error || !waba) {
+    res.status(404).json({ error: 'WABA account not found' });
+    return;
+  }
+
+  try {
+    const result = await subscribeAppToWaba(waba.access_token, waba.waba_id);
+    if (result.error) {
+      res.status(400).json({ error: result.error.message });
+      return;
+    }
+    res.json({ success: true, message: 'Subscribed to webhooks for this WhatsApp Business Account' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to subscribe to webhooks' });
   }
 }));
 

@@ -179,14 +179,11 @@ export function useVerifyPhoneCode() {
   });
 }
 
-export function useSubscribeWebhooks() {
+export function useSubscribeWabaWebhooks() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, url }: { id: string; url: string }) =>
-      api.post<ApiResponse<any>>(`/api/v1/phone-numbers/subscribe-webhooks/${id}`, { url }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['phone-numbers'] });
-    },
+    mutationFn: (wabaId: string) => api.post<ApiResponse<void>>(`/api/v1/waba/${wabaId}/subscribe`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['waba'] }),
   });
 }
 

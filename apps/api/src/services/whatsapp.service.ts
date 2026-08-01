@@ -236,20 +236,32 @@ export async function getPhoneNumberDetails(accessToken: string, phoneNumberId: 
   return readJson(response);
 }
 
-export async function subscribeToPhoneWebhooks(accessToken: string, phoneNumberId: string, webhookUrl: string) {
-  const response = await fetch(`${META_API_URL}/${phoneNumberId}/webhooks`, {
+/**
+ * Subscribes this app (via its own app-level webhook, configured once in the
+ * Meta App Dashboard) to receive webhook events for a WABA. There is no
+ * per-phone-number or per-callback-URL webhook registration in the WhatsApp
+ * Cloud API - the only lever is this WABA -> app subscription. Without it,
+ * Meta has nowhere to route the WABA's events regardless of how correct the
+ * app's webhook URL/signature setup is.
+ */
+export async function subscribeAppToWaba(accessToken: string, wabaId: string) {
+  const response = await fetch(`${META_API_URL}/${wabaId}/subscribed_apps`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      url: webhookUrl,
-      fields: ['messages', 'message_template_status_update', 'phone_number_quality_update']
-    })
+    }
   });
 
-  return readJson(response);
+  return readJson<{ success?: boolean; error?: { message?: string } }>(response);
+}
+
+export async function getSubscribedApps(accessToken: string, wabaId: string) {
+  const response = await fetch(`${META_API_URL}/${wabaId}/subscribed_apps`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  return readJson<{ data?: Array<{ whatsapp_business_api_data?: { id?: string; name?: string } }> }>(response);
 }
 
 export async function createTemplate(
@@ -323,18 +335,3 @@ export async function downloadWhatsAppMedia(accessToken: string, mediaId: string
   throw new Error('No media URL found');
 }
 
-export async function subscribeToWebhooks(accessToken: string, phoneNumberId: string, callbackUrl: string) {
-  const response = await fetch(`${META_API_URL}/${phoneNumberId}/webhooks`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      url: callbackUrl,
-      fields: ['messages', 'message_template_status_update', 'phone_number_quality_update']
-    })
-  });
-
-  return readJson(response);
-}

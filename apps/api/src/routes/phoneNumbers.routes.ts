@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest, asyncHandler } from '../middleware/auth.js';
-import { getPhoneNumberQuality, registerPhoneNumber, deregisterPhoneNumber, getWabaPhoneNumbers, requestVerificationCode, verifyPhoneNumber, getPhoneNumberDetails, subscribeToPhoneWebhooks } from '../services/whatsapp.service.js';
+import { getPhoneNumberQuality, registerPhoneNumber, deregisterPhoneNumber, getWabaPhoneNumbers, requestVerificationCode, verifyPhoneNumber, getPhoneNumberDetails } from '../services/whatsapp.service.js';
 
 // Never select access_token in responses that go back to the browser.
 const WABA_SAFE_COLUMNS = 'id, tenant_id, waba_id, waba_name, status, currency, timezone, created_at, updated_at';
@@ -314,42 +314,6 @@ router.get('/:id/details', authenticate, asyncHandler(async (req: AuthRequest, r
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-}));
-
-router.post('/subscribe-webhooks/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const supabase = req.supabase!;
-  const { id } = req.params;
-  const webhookUrl = req.body.url;
-
-  if (!webhookUrl) {
-    res.status(400).json({ error: 'Webhook URL required' });
-    return;
-  }
-
-  const { data: phoneNumber, error: phoneError } = await supabase
-    .from('phone_numbers')
-    .select('*, waba_accounts(*)')
-    .eq('id', id)
-    .eq('tenant_id', req.tenantId)
-    .single();
-
-  if (phoneError || !phoneNumber) {
-    res.status(404).json({ error: 'Phone number not found' });
-    return;
-  }
-
-  const result = await subscribeToPhoneWebhooks(
-    phoneNumber.waba_accounts.access_token,
-    phoneNumber.phone_number_id,
-    webhookUrl
-  );
-
-  await supabase
-    .from('phone_numbers')
-    .update({ webhook_url: webhookUrl })
-    .eq('id', id);
-
-  res.json({ success: true, data: result, message: 'Webhooks subscribed successfully' });
 }));
 
 export default router;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Trash2, RefreshCw, Settings, Phone, CheckCircle, AlertCircle, Send, X, Sparkles } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Settings, Phone, CheckCircle, AlertCircle, Send, X, Sparkles, Webhook } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -14,7 +14,7 @@ import {
   useWabaAccounts, useDisconnectWaba, usePhoneNumbers, useEmbeddedCallback,
   useSyncPhoneNumbers, useRegisterPhoneNumber, useDeregisterPhoneNumber,
   useRequestVerificationCode, useVerifyPhoneCode, useWabaMetaDetails, useSetDefaultPhoneNumber,
-  usePhoneNumberDetails
+  usePhoneNumberDetails, useSubscribeWabaWebhooks
 } from '../../../lib/hooks';
 
 const qualityColors: Record<string, string> = {
@@ -61,6 +61,8 @@ function WhatsAppContent() {
   const requestCode = useRequestVerificationCode();
   const verifyCodeMutation = useVerifyPhoneCode();
   const setDefaultPhone = useSetDefaultPhoneNumber();
+  const subscribeWebhooks = useSubscribeWabaWebhooks();
+  const [subscribeMessage, setSubscribeMessage] = useState('');
 
   const accounts = wabaRes?.data || [];
   const phoneNumbers = phoneRes?.data || [];
@@ -166,6 +168,17 @@ function WhatsAppContent() {
     }
   };
 
+  const handleSubscribeWebhooks = async (wabaId: string) => {
+    setSubscribeMessage('');
+    try {
+      await subscribeWebhooks.mutateAsync(wabaId);
+      setSubscribeMessage('Subscribed! Incoming messages should now reach your inbox.');
+      setTimeout(() => setSubscribeMessage(''), 5000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to subscribe to webhooks');
+    }
+  };
+
   const handleRegister = async () => {
     if (!registerPin || registerPin.length !== 6) {
       alert('Please enter a 6-digit PIN');
@@ -221,6 +234,11 @@ function WhatsAppContent() {
   return (
     <div className="p-section min-h-screen bg-canvas">
       <div className="max-w-content mx-auto">
+        {subscribeMessage && (
+          <div className="mb-md p-md bg-success/10 border border-success/20 rounded-lg font-body text-body-sm text-success">
+            {subscribeMessage}
+          </div>
+        )}
         <div className="flex items-center justify-between mb-lg">
           <div>
             <h1 className="font-display text-display-md text-ink">WhatsApp Accounts</h1>
@@ -299,6 +317,15 @@ function WhatsAppContent() {
                   >
                     <Settings className="w-4 h-4" />
                     <span>Details</span>
+                  </button>
+                  <button
+                    onClick={() => handleSubscribeWebhooks(account.id)}
+                    disabled={subscribeWebhooks.isPending}
+                    title="Re-subscribe to incoming message webhooks for this account"
+                    className="flex-1 flex items-center justify-center space-x-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition disabled:opacity-50"
+                  >
+                    <Webhook className="w-4 h-4" />
+                    <span>{subscribeWebhooks.isPending ? 'Subscribing...' : 'Enable Inbox'}</span>
                   </button>
                   <button
                     onClick={() => handleDisconnect(account.id)}
