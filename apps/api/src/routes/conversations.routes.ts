@@ -7,13 +7,34 @@ import { toCamelCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
+// assigned_to (on conversations) and user_id (on conversation_notes) have no
+// foreign key constraint to users in the schema, so PostgREST's embedded
+// resource syntax (table(...)) can't resolve a join for them - it fails with
+// "Could not find a relationship" even though the columns semantically point
+// at users.id. Resolved manually below instead of via embedded select.
+async function attachAssignedUsers(supabase: any, conversations: any[]) {
+  const userIds = Array.from(new Set(conversations.map((c) => c.assigned_to).filter(Boolean)));
+  if (userIds.length === 0) return conversations;
+
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, name, avatar_url')
+    .in('id', userIds);
+
+  const userById = new Map((users || []).map((u: any) => [u.id, u]));
+  return conversations.map((c) => ({
+    ...c,
+    assigned_to_user: c.assigned_to ? userById.get(c.assigned_to) || null : null
+  }));
+}
+
 router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const supabase = req.supabase!;
   const { status, assigned_to, label, page = '1', limit = '20' } = req.query;
 
   let query = supabase
     .from('conversations')
-    .select('*, contacts(*), phone_numbers(*), assigned_to_user:users(id, name, avatar_url)', { count: 'exact' })
+    .select('*, contacts(*), phone_numbers(*)', { count: 'exact' })
     .eq('tenant_id', req.tenantId);
 
   if (status) query = query.eq('status', status);
@@ -31,7 +52,9 @@ router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Respons
     return;
   }
 
-  res.json({ success: true, data: conversations || [] });
+  const withUsers = await attachAssignedUsers(supabase, conversations || []);
+
+  res.json({ success: true, data: withUsers });
 }));
 
 router.get('/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -40,7 +63,7 @@ router.get('/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Resp
 
   const { data: conversation, error } = await supabase
     .from('conversations')
-    .select('*, contacts(*), phone_numbers(*), conversation_notes(*, users:user_id(id, name))')
+    .select('*, contacts(*), phone_numbers(*), conversation_notes(*)')
     .eq('id', id)
     .eq('tenant_id', req.tenantId)
     .single();
@@ -50,7 +73,18 @@ router.get('/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Resp
     return;
   }
 
-  res.json({ success: true, data: conversation });
+  const noteUserIds = Array.from(new Set((conversation.conversation_notes || []).map((n: any) => n.user_id).filter(Boolean)));
+  let notesWithUsers = conversation.conversation_notes || [];
+
+  if (noteUserIds.length > 0) {
+    const { data: users } = await supabase.from('users').select('id, name').in('id', noteUserIds);
+    const userById = new Map((users || []).map((u: any) => [u.id, u]));
+    notesWithUsers = notesWithUsers.map((n: any) => ({ ...n, users: userById.get(n.user_id) || null }));
+  }
+
+  const [withUser] = await attachAssignedUsers(supabase, [conversation]);
+
+  res.json({ success: true, data: { ...withUser, conversation_notes: notesWithUsers } });
 }));
 
 router.post('/:id/assign', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
