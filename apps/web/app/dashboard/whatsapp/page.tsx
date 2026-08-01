@@ -13,7 +13,8 @@ declare global {
 import {
   useWabaAccounts, useDisconnectWaba, usePhoneNumbers, useEmbeddedCallback,
   useSyncPhoneNumbers, useRegisterPhoneNumber, useDeregisterPhoneNumber,
-  useRequestVerificationCode, useVerifyPhoneCode, useWabaMetaDetails, useSetDefaultPhoneNumber
+  useRequestVerificationCode, useVerifyPhoneCode, useWabaMetaDetails, useSetDefaultPhoneNumber,
+  usePhoneNumberDetails
 } from '../../../lib/hooks';
 
 const qualityColors: Record<string, string> = {
@@ -47,6 +48,7 @@ function WhatsAppContent() {
   const [embeddedSignupLoaded, setEmbeddedSignupLoaded] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [detailsWabaId, setDetailsWabaId] = useState<string | null>(null);
+  const [detailsPhoneId, setDetailsPhoneId] = useState<string | null>(null);
   const fbRef = useRef<any>(null);
 
   const { data: wabaRes, isLoading: wabaLoading, refetch } = useWabaAccounts();
@@ -408,7 +410,11 @@ function WhatsAppContent() {
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
-                        <button className="p-xs hover:bg-hairline-soft rounded-md transition" title="Settings">
+                        <button
+                          onClick={() => setDetailsPhoneId(phone.id)}
+                          className="p-xs hover:bg-hairline-soft rounded-md transition"
+                          title="Details"
+                        >
                           <Settings className="w-4 h-4 text-muted" />
                         </button>
                         <button 
@@ -580,6 +586,65 @@ function WhatsAppContent() {
       {detailsWabaId && (
         <WabaDetailsModal wabaId={detailsWabaId} onClose={() => setDetailsWabaId(null)} />
       )}
+
+      {detailsPhoneId && (
+        <PhoneDetailsModal phoneId={detailsPhoneId} onClose={() => setDetailsPhoneId(null)} />
+      )}
+    </div>
+  );
+}
+
+function PhoneDetailsModal({ phoneId, onClose }: { phoneId: string; onClose: () => void }) {
+  const { data, isLoading, error } = usePhoneNumberDetails(phoneId);
+  const details = data?.data;
+
+  return (
+    <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
+      <div className="bg-surface-card rounded-xl p-xl w-full max-w-md border border-hairline shadow-soft">
+        <div className="flex items-center justify-between mb-md">
+          <h2 className="font-display text-display-sm text-ink">Phone Number Details</h2>
+          <button onClick={onClose} className="p-xs hover:bg-hairline-soft rounded">
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-sm">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-8 bg-hairline-soft rounded animate-pulse" />
+            ))}
+          </div>
+        ) : error || !details ? (
+          <p className="font-body text-body-md text-error text-center py-lg">Failed to load details from Meta</p>
+        ) : (
+          <div className="space-y-sm">
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Number</span>
+              <span className="text-body-strong">{details.display_phone_number || details.displayPhoneNumber || '-'}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Verified Name</span>
+              <span className="text-body-strong">{details.verified_name || details.verifiedName || '-'}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Quality Rating</span>
+              <span className="text-body-strong capitalize">{(details.quality_rating || details.qualityRating || '-').toLowerCase()}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Status</span>
+              <span className="text-body-strong capitalize">{(details.status || '-').toLowerCase()}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Name Status</span>
+              <span className="text-body-strong capitalize">{(details.name_status || details.nameStatus || '-').toLowerCase()}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Code Verification</span>
+              <span className="text-body-strong capitalize">{(details.code_verification_status || details.codeVerificationStatus || '-').toLowerCase()}</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
