@@ -14,7 +14,12 @@ router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Respons
     .eq('tenant_id', req.tenantId);
 
   if (search) {
-    query = query.or(`phone.ilike.%${search}%,name.ilike.%${search}%,email.ilike.%${search}%`);
+    // Escape PostgREST filter syntax (`,`, `(`, `)`) and ilike wildcards
+    // (`%`, `_`) so user input can't inject additional filter clauses.
+    const safeSearch = String(search)
+      .replace(/[\\%_]/g, '\\$&')
+      .replace(/[,()]/g, '');
+    query = query.or(`phone.ilike.%${safeSearch}%,name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`);
   }
 
   if (opted_in !== undefined) {

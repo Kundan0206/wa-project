@@ -21,17 +21,40 @@ router.get('/whatsapp', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 router.post('/whatsapp', asyncHandler(async (req: Request, res: Response) => {
-  const signature = req.headers['x-hub-signature-256'];
-  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || 'whatsapp_webhook_verify';
+  const signature = req.headers['x-hub-signature-256'] as string | undefined;
+  const appSecret = process.env.META_APP_SECRET;
 
-  const payload = JSON.stringify(req.body);
+  if (!appSecret) {
+    console.error('META_APP_SECRET is not configured; rejecting webhook');
+    res.status(500).json({ error: 'Webhook not configured' });
+    return;
+  }
+
+  if (!signature) {
+    res.status(401).json({ error: 'Missing signature' });
+    return;
+  }
+
+  // req.rawBody is captured by the express.json verify hook in index.ts so the
+  // HMAC is computed over the exact bytes Meta signed, not a re-serialized copy.
+  const rawBody = (req as any).rawBody as Buffer | undefined;
   const expectedSignature = crypto
-    .createHmac('sha256', verifyToken)
-    .update(payload)
+    .createHmac('sha256', appSecret)
+    .update(rawBody ?? Buffer.from(JSON.stringify(req.body)))
     .digest('hex');
 
-  if (signature && signature !== `sha256=${expectedSignature}`) {
+  const provided = signature.replace(/^sha256=/, '');
+  const expectedBuf = Buffer.from(expectedSignature, 'hex');
+  const providedBuf = Buffer.from(provided, 'hex');
+
+  const isValid =
+    expectedBuf.length === providedBuf.length &&
+    crypto.timingSafeEqual(expectedBuf, providedBuf);
+
+  if (!isValid) {
     console.warn('Invalid webhook signature');
+    res.status(401).json({ error: 'Invalid signature' });
+    return;
   }
 
   res.status(200).json({ success: true });

@@ -81,30 +81,16 @@ export async function authenticateAPIKey(
     }
 
     const supabase = req.supabase!;
+    const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
 
-    const { data: keys, error } = await supabase
+    const { data: foundKey, error } = await supabase
       .from('api_keys')
       .select('*')
-      .eq('tenant_id', 'tenant_id')
-      .eq('is_active', true)
-      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+      .eq('key_hash', hash)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+      .single();
 
-    if (error || !keys || keys.length === 0) {
-      res.status(401).json({ error: 'Unauthorized: No valid API keys' });
-      return;
-    }
-
-    let foundKey: any = null;
-
-    for (const keyData of keys) {
-      const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
-      if (hash === keyData.key_hash) {
-        foundKey = keyData;
-        break;
-      }
-    }
-
-    if (!foundKey) {
+    if (error || !foundKey) {
       res.status(401).json({ error: 'Unauthorized: Invalid API key' });
       return;
     }

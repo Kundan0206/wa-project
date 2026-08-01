@@ -1,10 +1,8 @@
 import { Server } from 'socket.io';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret';
+import { supabase } from '../lib/supabase.js';
 
 export function setupSocketIO(io: Server) {
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['authorization']?.split(' ')[1];
 
     if (!token) {
@@ -12,9 +10,24 @@ export function setupSocketIO(io: Server) {
     }
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as any;
-      socket.data.user = decoded;
-      socket.data.tenantId = decoded.tenantId;
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+
+      if (error || !user) {
+        return next(new Error('Invalid token'));
+      }
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, tenant_id, role')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData) {
+        return next(new Error('User not found'));
+      }
+
+      socket.data.user = { id: userData.id, role: userData.role };
+      socket.data.tenantId = userData.tenant_id;
       next();
     } catch (error) {
       next(new Error('Invalid token'));

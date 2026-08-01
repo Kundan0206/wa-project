@@ -134,6 +134,18 @@ router.get('/:id/analytics', authenticate, asyncHandler(async (req: AuthRequest,
   const supabase = req.supabase!;
   const { id } = req.params;
 
+  const { data: flow } = await supabase
+    .from('flows')
+    .select('id')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (!flow) {
+    res.status(404).json({ error: 'Flow not found' });
+    return;
+  }
+
   const { count: total } = await supabase
     .from('flow_sessions')
     .select('*', { count: 'exact', head: true })

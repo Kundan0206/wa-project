@@ -2,6 +2,9 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest, requireRole, asyncHandler } from '../middleware/auth.js';
 
+// Never select access_token in responses that go back to the browser.
+const WABA_SAFE_COLUMNS = 'id, tenant_id, waba_id, waba_name, status, currency, timezone, created_at, updated_at';
+
 const router = Router();
 
 const createTemplateSchema = z.object({
@@ -17,7 +20,7 @@ router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Respons
 
   let query = supabase
     .from('templates')
-    .select('*, waba_accounts(*)', { count: 'exact' })
+    .select(`*, waba_accounts(${WABA_SAFE_COLUMNS})`, { count: 'exact' })
     .eq('tenant_id', req.tenantId);
 
   if (status) query = query.eq('status', status);
@@ -57,7 +60,7 @@ router.get('/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Resp
 
   const { data: template, error } = await supabase
     .from('templates')
-    .select('*, waba_accounts(*)')
+    .select(`*, waba_accounts(${WABA_SAFE_COLUMNS})`)
     .eq('id', id)
     .eq('tenant_id', req.tenantId)
     .single();
@@ -130,22 +133,37 @@ router.get('/:id/analytics', authenticate, asyncHandler(async (req: AuthRequest,
   const supabase = req.supabase!;
   const { id } = req.params;
 
+  const { data: template } = await supabase
+    .from('templates')
+    .select('id')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (!template) {
+    res.status(404).json({ error: 'Template not found' });
+    return;
+  }
+
   const { count: sent } = await supabase
     .from('messages')
     .select('*', { count: 'exact', head: true })
     .eq('template_id', id)
+    .eq('tenant_id', req.tenantId)
     .in('status', ['sent', 'delivered', 'read']);
 
   const { count: delivered } = await supabase
     .from('messages')
     .select('*', { count: 'exact', head: true })
     .eq('template_id', id)
+    .eq('tenant_id', req.tenantId)
     .in('status', ['delivered', 'read']);
 
   const { count: read } = await supabase
     .from('messages')
     .select('*', { count: 'exact', head: true })
     .eq('template_id', id)
+    .eq('tenant_id', req.tenantId)
     .eq('status', 'read');
 
   res.json({

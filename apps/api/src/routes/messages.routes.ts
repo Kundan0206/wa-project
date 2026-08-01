@@ -202,38 +202,6 @@ router.post('/mark-read', authenticate, asyncHandler(async (req: AuthRequest, re
   await sendWhatsAppMessage(
     message.phone_numbers.waba_accounts.access_token,
     message.phone_numbers.phone_number_id,
-    message.to,
-    { type: 'text', text: { body: '' } },
-    message.wamid!
-  );
-
-  await supabase
-    .from('messages')
-    .update({ status: 'read', read_at: new Date().toISOString() })
-    .eq('id', message.id);
-
-  res.json({ success: true });
-}));
-
-router.post('/mark-read', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { message_id } = req.body;
-  const supabase = req.supabase!;
-
-  const { data: message } = await supabase
-    .from('messages')
-    .select('*, phone_numbers(*, waba_accounts(*))')
-    .eq('wamid', message_id)
-    .eq('tenant_id', req.tenantId)
-    .single();
-
-  if (!message) {
-    res.status(404).json({ error: 'Message not found' });
-    return;
-  }
-
-  await sendWhatsAppMessage(
-    message.phone_numbers.waba_accounts.access_token,
-    message.phone_numbers.phone_number_id,
     message.recipient,
     { type: 'text', text: { body: '' } },
     message.wamid!

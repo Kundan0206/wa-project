@@ -20,9 +20,11 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const data = registerSchema.parse(req.body);
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  const { data: existingUser } = await supabase.auth.admin.listUsers();
-
-  const foundUser = existingUser?.users.find(u => u.email === data.email);
+  const { data: foundUser } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', data.email)
+    .maybeSingle();
 
   if (foundUser) {
     res.status(400).json({ error: 'User already exists' });
@@ -92,8 +94,7 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
     .from('tenant_settings')
     .insert({ tenant_id: tenant.id });
 
-  const { data: sessionData } = await supabase.auth.admin.generateLink({
-    type: 'signup',
+  const { data: sessionData } = await supabase.auth.signInWithPassword({
     email: data.email,
     password: data.password
   });
@@ -101,7 +102,7 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json({
     success: true,
     data: {
-      token: (sessionData as any)?.properties?.hashed_id || (authData as any).session?.access_token,
+      token: sessionData?.session?.access_token,
       user: { id: authData.user.id, email: authData.user.email!, name: data.name, role: 'owner' },
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug }
     }

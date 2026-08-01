@@ -42,16 +42,19 @@ router.post('/invite', authenticate, requireRole('owner', 'admin'), asyncHandler
     return;
   }
 
-  const tempPassword = Math.random().toString(36).slice(-8);
-
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  // Supabase issues a random password internally for invite-type links and
+  // never returns it to the caller - the user sets their own via the link,
+  // so no temporary password is ever exposed in this response or its logs.
+  const { data: linkData, error: authError } = await supabase.auth.admin.generateLink({
+    type: 'invite',
     email: data.email,
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: { name: data.name, tenant_id: req.tenantId }
+    options: {
+      data: { name: data.name, tenant_id: req.tenantId },
+      redirectTo: `${process.env.FRONTEND_URL || ''}/auth/login`
+    }
   });
 
-  if (authError || !authData.user) {
+  if (authError || !linkData?.user) {
     res.status(500).json({ error: authError?.message || 'Failed to create user' });
     return;
   }
@@ -59,7 +62,7 @@ router.post('/invite', authenticate, requireRole('owner', 'admin'), asyncHandler
   const { error: userError } = await supabase
     .from('users')
     .insert({
-      id: authData.user.id,
+      id: linkData.user.id,
       tenant_id: req.tenantId!,
       email: data.email,
       password_hash: 'managed_by_supabase_auth',
@@ -75,8 +78,8 @@ router.post('/invite', authenticate, requireRole('owner', 'admin'), asyncHandler
 
   res.status(201).json({
     success: true,
-    data: { id: authData.user.id, email: data.email, name: data.name, role: data.role },
-    message: `User invited. Temporary password: ${tempPassword}`
+    data: { id: linkData.user.id, email: data.email, name: data.name, role: data.role },
+    message: 'User invited. An invite email has been sent (or the invite link was generated for delivery).'
   });
 }));
 

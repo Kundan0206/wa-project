@@ -59,8 +59,8 @@ router.post('/', authenticate, requireRole('owner', 'admin'), asyncHandler(async
   const supabase = req.supabase!;
 
   const [{ data: template }, { data: phoneNumber }] = await Promise.all([
-    supabase.from('templates').select('*').eq('id', data.template_id).single(),
-    supabase.from('phone_numbers').select('*').eq('id', data.phone_number_id).single()
+    supabase.from('templates').select('*').eq('id', data.template_id).eq('tenant_id', req.tenantId).single(),
+    supabase.from('phone_numbers').select('*').eq('id', data.phone_number_id).eq('tenant_id', req.tenantId).single()
   ]);
 
   if (!template || !phoneNumber) {
@@ -82,8 +82,15 @@ router.post('/', authenticate, requireRole('owner', 'admin'), asyncHandler(async
       .from('contact_segments')
       .select('contact_count')
       .eq('id', data.segment_id)
+      .eq('tenant_id', req.tenantId)
       .single();
-    contactCount = segment?.contact_count || 0;
+
+    if (!segment) {
+      res.status(404).json({ error: 'Segment not found' });
+      return;
+    }
+
+    contactCount = segment.contact_count || 0;
   } else if (data.audience_type === 'custom' && data.contact_ids) {
     contactCount = data.contact_ids.length;
   }

@@ -76,6 +76,18 @@ router.post('/:id/test', authenticate, asyncHandler(async (req: AuthRequest, res
   const supabase = req.supabase!;
   const { id } = req.params;
 
+  const { data: webhook } = await supabase
+    .from('client_webhooks')
+    .select('id')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (!webhook) {
+    res.status(404).json({ error: 'Webhook not found' });
+    return;
+  }
+
   await addWebhookJob({
     webhookId: id,
     eventType: 'message.received',

@@ -2,6 +2,9 @@ import { Router, Response } from 'express';
 import { authenticate, AuthRequest, asyncHandler } from '../middleware/auth.js';
 import { getPhoneNumberQuality, registerPhoneNumber, deregisterPhoneNumber, getWabaPhoneNumbers, requestVerificationCode, verifyPhoneNumber, getPhoneNumberDetails, subscribeToPhoneWebhooks } from '../services/whatsapp.service.js';
 
+// Never select access_token in responses that go back to the browser.
+const WABA_SAFE_COLUMNS = 'id, tenant_id, waba_id, waba_name, status, currency, timezone, created_at, updated_at';
+
 const router = Router();
 
 router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -9,7 +12,7 @@ router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Respons
 
   const { data: phoneNumbers, error } = await supabase
     .from('phone_numbers')
-    .select('*, waba_accounts(*)')
+    .select(`*, waba_accounts(${WABA_SAFE_COLUMNS})`)
     .eq('tenant_id', req.tenantId)
     .order('created_at', { ascending: false });
 
@@ -43,6 +46,7 @@ router.post('/sync', authenticate, asyncHandler(async (req: AuthRequest, res: Re
       .from('phone_numbers')
       .select('id')
       .eq('phone_number_id', metaPhone.id)
+      .eq('tenant_id', req.tenantId)
       .single();
 
     if (!existing) {
@@ -72,7 +76,7 @@ router.post('/sync', authenticate, asyncHandler(async (req: AuthRequest, res: Re
 
   const { data: phoneNumbers } = await supabase
     .from('phone_numbers')
-    .select('*, waba_accounts(*)')
+    .select(`*, waba_accounts(${WABA_SAFE_COLUMNS})`)
     .eq('tenant_id', req.tenantId);
 
   res.json({ success: true, data: phoneNumbers || [], message: `Synced ${metaPhones.length} phone numbers` });

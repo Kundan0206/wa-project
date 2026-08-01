@@ -57,10 +57,34 @@ export function useWabaAccounts() {
   });
 }
 
-export function useConnectWaba() {
+interface DiscoveredWaba {
+  wabaId: string;
+  wabaName?: string;
+  currency?: string;
+  timezone?: string;
+  alreadyConnected: boolean;
+  connectedToAnotherWorkspace: boolean;
+}
+
+interface ConnectDiscoverResponse {
+  selectionToken: string;
+  wabas: DiscoveredWaba[];
+}
+
+// Step 1: exchange the OAuth code and discover which WhatsApp Business
+// Accounts (existing or otherwise) this Meta login can access.
+export function useDiscoverWabas() {
+  return useMutation({
+    mutationFn: (code: string) => api.post<ApiResponse<ConnectDiscoverResponse>>('/api/v1/waba/connect', { code }),
+  });
+}
+
+// Step 2: finalize connecting the WABA the user picked from the discovery list.
+export function useSelectWaba() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (code: string) => api.post<ApiResponse<WabaAccount>>('/api/v1/waba/connect', { code }),
+    mutationFn: ({ selectionToken, wabaId }: { selectionToken: string; wabaId: string }) =>
+      api.post<ApiResponse<WabaAccount>>('/api/v1/waba/connect/select', { selectionToken, wabaId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['waba'] }),
   });
 }

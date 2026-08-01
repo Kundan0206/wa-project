@@ -24,7 +24,12 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => {
+    (req as any).rawBody = Buffer.from(buf);
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 const limiter = rateLimit({

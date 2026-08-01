@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest, asyncHandler } from '../middleware/auth.js';
 import { io } from '../index.js';
+import { addToMessageQueue } from '../queue/index.js';
 
 const router = Router();
 
@@ -121,8 +122,8 @@ router.post('/:id/send', authenticate, asyncHandler(async (req: AuthRequest, res
       conversation_id: id,
       contact_id: conversation.contact_id,
       direction: 'outbound',
-      to: conversation.contacts.phone,
-      from: conversation.phone_numbers.display_number,
+      recipient: conversation.contacts.phone,
+      sender: conversation.phone_numbers.display_number,
       type: type as string,
       content: message,
       status: 'queued'
@@ -134,6 +135,16 @@ router.post('/:id/send', authenticate, asyncHandler(async (req: AuthRequest, res
     res.status(500).json({ error: error.message });
     return;
   }
+
+  await addToMessageQueue({
+    messageId: msg.id,
+    type: 'text',
+    to: conversation.contacts.phone,
+    phoneNumberId: conversation.phone_numbers.phone_number_id,
+    wabaId: conversation.phone_numbers.waba_accounts.waba_id,
+    accessToken: conversation.phone_numbers.waba_accounts.access_token,
+    content: message
+  });
 
   io.to(`tenant:${req.tenantId}:conversation:${id}`).emit('new_message', msg);
 

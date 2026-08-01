@@ -67,6 +67,20 @@ export async function sendTemplateMessage(
   return sendWhatsAppMessage(accessToken, phoneNumberId, to, message);
 }
 
+export interface DiscoveredWaba {
+  wabaId: string;
+  wabaName?: string;
+  currency?: string;
+  timezone?: string;
+}
+
+/**
+ * Exchanges an OAuth code for a User access token. Does NOT resolve a WABA -
+ * a User access token grants access to zero or more existing WhatsApp
+ * Business Accounts, which must be discovered separately (see
+ * listAccessibleWabas) so the caller can let the user pick one instead of
+ * guessing.
+ */
 export async function exchangeCodeForToken(code: string) {
   const clientId = process.env.META_APP_ID;
   const clientSecret = process.env.META_APP_SECRET;
@@ -82,21 +96,57 @@ export async function exchangeCodeForToken(code: string) {
     throw new Error(data.error.message);
   }
 
-  const meResponse = await fetch(`${META_API_URL}/me?fields=id,name,business_phone_number,timezone,currency&access_token=${data.access_token}`);
-  const meData = await readJson<{
-    id: string;
-    name?: string;
-    currency?: string;
-    timezone?: string;
-  }>(meResponse);
+  return { accessToken: data.access_token };
+}
 
-  return {
-    accessToken: data.access_token,
-    wabaId: meData.id,
-    wabaName: meData.name,
-    currency: meData.currency,
-    timezone: meData.timezone
-  };
+/**
+ * Discovers the WhatsApp Business Accounts a given access token actually has
+ * management access to, via debug_token's granular_scopes. This is how an
+ * already-existing WABA (one the user manages in Meta Business Manager, not
+ * created through this app) gets surfaced so it can be connected instead of
+ * always creating a brand new one via Embedded Signup.
+ */
+export async function listAccessibleWabas(accessToken: string): Promise<DiscoveredWaba[]> {
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  const inspectToken = process.env.META_SYSTEM_USER_TOKEN || `${appId}|${appSecret}`;
+
+  const debugResponse = await fetch(`${META_API_URL}/debug_token?input_token=${accessToken}`, {
+    headers: { 'Authorization': `Bearer ${inspectToken}` }
+  });
+  const debugData = await readJson<{
+    data?: { is_valid?: boolean; granular_scopes?: Array<{ scope: string; target_ids?: string[] }> };
+    error?: { message?: string };
+  }>(debugResponse);
+
+  if (debugData.error || !debugData.data?.is_valid) {
+    throw new Error(debugData.error?.message || 'Invalid access token');
+  }
+
+  const wabaIds = debugData.data.granular_scopes?.find(
+    (s) => s.scope === 'whatsapp_business_management'
+  )?.target_ids || [];
+
+  const wabas = await Promise.all(
+    wabaIds.map(async (wabaId): Promise<DiscoveredWaba | null> => {
+      const wabaResponse = await fetch(
+        `${META_API_URL}/${wabaId}?fields=id,name,timezone_id,currency`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      );
+      const wabaData = await readJson<{ id?: string; name?: string; currency?: string; timezone_id?: string }>(wabaResponse);
+
+      if (!wabaData.id) return null;
+
+      return {
+        wabaId: wabaData.id,
+        wabaName: wabaData.name,
+        currency: wabaData.currency,
+        timezone: wabaData.timezone_id
+      };
+    })
+  );
+
+  return wabas.filter((w): w is DiscoveredWaba => w !== null);
 }
 
 export async function registerPhoneNumber(
