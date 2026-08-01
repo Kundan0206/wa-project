@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, Play, MoreVertical, BarChart2 } from 'lucide-react';
-import { useCampaigns, useSendCampaign, useDeleteCampaign } from '../../../lib/hooks';
+import { Plus, Search, Play, MoreVertical, BarChart2, X } from 'lucide-react';
+import {
+  useCampaigns, useSendCampaign, useDeleteCampaign, useCreateCampaign,
+  useTemplates, usePhoneNumbers
+} from '../../../lib/hooks';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-hairline-soft text-muted',
@@ -13,17 +16,63 @@ const statusColors: Record<string, string> = {
   failed: 'bg-error/10 text-error'
 };
 
+const emptyForm = {
+  name: '',
+  templateId: '',
+  phoneNumberId: '',
+  audienceType: 'all' as 'all' | 'custom'
+};
+
 export default function CampaignsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState('');
   const { data: campaignsRes, isLoading } = useCampaigns();
+  const { data: templatesRes } = useTemplates({ status: 'approved' });
+  const { data: phoneRes } = usePhoneNumbers();
   const sendCampaign = useSendCampaign();
   const deleteCampaign = useDeleteCampaign();
+  const createCampaign = useCreateCampaign();
 
   const campaigns = campaignsRes?.data || [];
+  const approvedTemplates = templatesRes?.data || [];
+  const phoneNumbers = phoneRes?.data || [];
 
   const filtered = searchTerm
     ? campaigns.filter((c) => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
     : campaigns;
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (!form.name.trim()) {
+      setFormError('Campaign name is required');
+      return;
+    }
+    if (!form.templateId) {
+      setFormError('Select a template');
+      return;
+    }
+    if (!form.phoneNumberId) {
+      setFormError('Select a phone number');
+      return;
+    }
+
+    try {
+      await createCampaign.mutateAsync({
+        name: form.name.trim(),
+        template_id: form.templateId,
+        phone_number_id: form.phoneNumberId,
+        audience_type: form.audienceType
+      });
+      setShowCreate(false);
+      setForm(emptyForm);
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to create campaign');
+    }
+  };
 
   return (
     <div className="p-section min-h-screen bg-canvas">
@@ -33,7 +82,10 @@ export default function CampaignsPage() {
             <h1 className="font-display text-display-md text-ink">Campaigns</h1>
             <p className="font-body text-body-md text-muted mt-xs">Send bulk messages to your contacts</p>
           </div>
-          <button className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:bg-primary-active transition">
+          <button
+            onClick={() => { setShowCreate(true); setFormError(''); }}
+            className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:bg-primary-active transition"
+          >
             <Plus className="w-4 h-4" />
             <span>Create Campaign</span>
           </button>
@@ -133,6 +185,97 @@ export default function CampaignsPage() {
           )}
         </div>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
+          <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="font-display text-display-sm text-ink">Create Campaign</h2>
+              <button onClick={() => setShowCreate(false)} className="p-xs hover:bg-hairline-soft rounded">
+                <X className="w-5 h-5 text-muted" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className="space-y-md">
+              <div>
+                <label className="font-body text-caption text-muted mb-xs block">Campaign Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Summer Sale Announcement"
+                  className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink px-md py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
+                />
+              </div>
+
+              <div>
+                <label className="font-body text-caption text-muted mb-xs block">Template</label>
+                <select
+                  value={form.templateId}
+                  onChange={(e) => setForm({ ...form, templateId: e.target.value })}
+                  className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink px-md py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
+                >
+                  <option value="">Select an approved template</option>
+                  {approvedTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                {approvedTemplates.length === 0 && (
+                  <p className="font-body text-caption text-muted-soft mt-xxs">No approved templates yet. Create one and wait for Meta approval first.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="font-body text-caption text-muted mb-xs block">Send From</label>
+                <select
+                  value={form.phoneNumberId}
+                  onChange={(e) => setForm({ ...form, phoneNumberId: e.target.value })}
+                  className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink px-md py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition"
+                >
+                  <option value="">Select a phone number</option>
+                  {phoneNumbers.map((p) => (
+                    <option key={p.id} value={p.id}>{p.displayNumber || p.displayName || p.id}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-body text-caption text-muted mb-xs block">Audience</label>
+                <div className="flex space-x-sm">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, audienceType: 'all' })}
+                    className={`flex-1 px-md py-sm rounded-lg font-body text-body-sm border transition ${form.audienceType === 'all' ? 'border-primary bg-primary/10 text-primary' : 'border-hairline-strong text-ink hover:bg-hairline-soft'}`}
+                  >
+                    All opted-in contacts
+                  </button>
+                </div>
+              </div>
+
+              {formError && (
+                <p className="font-body text-body-sm text-error">{formError}</p>
+              )}
+
+              <div className="flex justify-end space-x-sm pt-md border-t border-hairline">
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(false)}
+                  className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createCampaign.isPending}
+                  className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill hover:bg-primary-active transition disabled:opacity-50"
+                >
+                  {createCampaign.isPending ? 'Creating...' : 'Create Campaign'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -162,6 +162,21 @@ router.post('/logout', authenticate, asyncHandler(async (req: AuthRequest, res: 
   res.json({ success: true, message: 'Logged out successfully' });
 }));
 
+router.post('/change-password', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(req.user!.email, {
+    redirectTo: `${process.env.FRONTEND_URL || ''}/auth/login`
+  });
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ success: true, message: 'Password reset email sent' });
+}));
+
 router.get('/me', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const supabase = req.supabase!;
 

@@ -23,10 +23,10 @@ interface MessagesAnalytics {
 
 interface BusinessProfile {
   id?: string;
-  business_name?: string;
-  business_email?: string;
-  business_phone?: string;
-  business_address?: string;
+  businessName?: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  businessAddress?: string;
 }
 
 interface NotificationSettings {
@@ -363,5 +363,80 @@ export function useNotificationSettings() {
   return useQuery({
     queryKey: ['settings', 'notifications'],
     queryFn: () => api.get<ApiResponse<NotificationSettings>>('/api/v1/settings/notifications'),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: () => api.post<ApiResponse<void>>('/api/v1/auth/change-password'),
+  });
+}
+
+export function useUpdateNotificationSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { notification_email?: boolean; notification_sms?: boolean }) =>
+      api.put<ApiResponse<NotificationSettings>>('/api/v1/settings/notifications', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'notifications'] }),
+  });
+}
+
+// Webhooks (developer/client webhooks, not the Meta inbound webhook)
+export interface ClientWebhook {
+  id: string;
+  tenantId: string;
+  url: string;
+  secret?: string;
+  events: string[];
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface WebhookLog {
+  id: string;
+  webhookId: string;
+  webhookUrl?: string;
+  eventType: string;
+  payload: unknown;
+  responseStatus: number | null;
+  responseBody: string | null;
+  attemptedAt: string;
+  attemptCount: number;
+}
+
+export function useWebhooks() {
+  return useQuery({
+    queryKey: ['webhooks'],
+    queryFn: () => api.get<ApiResponse<ClientWebhook[]>>('/api/v1/webhooks'),
+  });
+}
+
+export function useCreateWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { url: string; events: string[] }) =>
+      api.post<ApiResponse<ClientWebhook>>('/api/v1/webhooks', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+  });
+}
+
+export function useDeleteWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<ApiResponse<void>>(`/api/v1/webhooks/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+  });
+}
+
+export function useTestWebhook() {
+  return useMutation({
+    mutationFn: (id: string) => api.post<ApiResponse<void>>(`/api/v1/webhooks/${id}/test`),
+  });
+}
+
+export function useWebhookLogs(params?: { page?: string; limit?: string }) {
+  return useQuery({
+    queryKey: ['webhooks', 'logs', params],
+    queryFn: () => api.get<PaginatedResponse<WebhookLog>>('/api/v1/webhooks/logs', params as Record<string, string>),
   });
 }

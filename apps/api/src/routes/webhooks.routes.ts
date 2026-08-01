@@ -97,4 +97,49 @@ router.post('/:id/test', authenticate, asyncHandler(async (req: AuthRequest, res
   res.json({ success: true, message: 'Test event queued' });
 }));
 
+router.get('/logs', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const { page = '1', limit = '20' } = req.query;
+
+  const { data: webhooks } = await supabase
+    .from('client_webhooks')
+    .select('id, url')
+    .eq('tenant_id', req.tenantId);
+
+  const webhookIds = (webhooks || []).map((w) => w.id);
+
+  if (webhookIds.length === 0) {
+    res.json({ success: true, data: [], pagination: { page: 1, limit: parseInt(limit as string), total: 0, totalPages: 0 } });
+    return;
+  }
+
+  const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+  const { data: logs, error, count } = await supabase
+    .from('webhook_logs')
+    .select('*', { count: 'exact' })
+    .in('webhook_id', webhookIds)
+    .order('attempted_at', { ascending: false })
+    .range(skip, skip + parseInt(limit as string) - 1);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const urlById = new Map((webhooks || []).map((w) => [w.id, w.url]));
+  const enriched = (logs || []).map((log) => ({ ...log, webhook_url: urlById.get(log.webhook_id) }));
+
+  res.json({
+    success: true,
+    data: enriched,
+    pagination: {
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+      total: count || 0,
+      totalPages: Math.ceil((count || 0) / parseInt(limit as string))
+    }
+  });
+}));
+
 export default router;

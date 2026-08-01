@@ -98,4 +98,61 @@ router.get('/notifications', authenticate, asyncHandler(async (req: AuthRequest,
   });
 }));
 
+const notificationSettingsSchema = z.object({
+  notification_email: z.boolean().optional(),
+  notification_sms: z.boolean().optional()
+});
+
+router.put('/notifications', authenticate, requireRole('owner', 'admin'), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = notificationSettingsSchema.parse(req.body);
+  const supabase = req.supabase!;
+
+  const { data: existing } = await supabase
+    .from('tenant_settings')
+    .select('id')
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  const update = {
+    ...(data.notification_email !== undefined && { notification_email: data.notification_email }),
+    ...(data.notification_sms !== undefined && { notification_sms: data.notification_sms })
+  };
+
+  if (existing) {
+    const { data: updated, error } = await supabase
+      .from('tenant_settings')
+      .update({ ...update, updated_at: new Date().toISOString() })
+      .eq('tenant_id', req.tenantId)
+      .select('notification_email, notification_sms')
+      .single();
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: { notificationEmail: updated.notification_email, notificationSms: updated.notification_sms }
+    });
+    return;
+  }
+
+  const { data: created, error } = await supabase
+    .from('tenant_settings')
+    .insert({ tenant_id: req.tenantId!, ...update })
+    .select('notification_email, notification_sms')
+    .single();
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: { notificationEmail: created.notification_email, notificationSms: created.notification_sms }
+  });
+}));
+
 export default router;

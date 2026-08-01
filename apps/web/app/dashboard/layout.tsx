@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, MessageSquare, Users, Send, Bot, BarChart3,
-  Settings, Phone, FileText
+  Settings, Phone, FileText, ScrollText
 } from 'lucide-react';
 import { useAuthStore } from '../../lib/store';
 
@@ -21,6 +21,7 @@ const navItems = [
 ];
 
 const settingsItems = [
+  { href: '/dashboard/logs', label: 'Logs', icon: ScrollText },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
