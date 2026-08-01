@@ -54,12 +54,36 @@ export default function InboxPage() {
     }
   }, [filtered, selectedId]);
 
+  // Kept in a ref (not state) so the listener effect below can read the
+  // currently-open conversation without needing selectedId as a dependency -
+  // that would otherwise force the socket to disconnect/reconnect on every
+  // conversation switch and risk missing events during the reconnect gap.
+  const selectedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  // The backend only broadcasts a new message to the
+  // tenant:{id}:conversation:{id} room, which a client must explicitly join -
+  // it is not auto-joined on connect. Without this, no per-conversation
+  // event ever reaches this client, no matter what listeners are attached.
+  useEffect(() => {
+    if (!token || !selectedId) return;
+    const socket = getSocket(token);
+    socket.emit('join_conversation', selectedId);
+    return () => {
+      socket.emit('leave_conversation', selectedId);
+    };
+  }, [token, selectedId]);
+
+  // Connects once per mount and stays connected across conversation
+  // switches - only the room membership (above) changes per selection.
   useEffect(() => {
     if (!token) return;
     const socket = getSocket(token);
 
     socket.on('new_message', (msg: Message) => {
-      if (msg.conversationId === selectedId) {
+      if (msg.conversationId === selectedIdRef.current) {
         setLiveMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
       }
       // Keep the conversation list (last message preview, unread count) fresh
@@ -67,18 +91,27 @@ export default function InboxPage() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     });
 
+    // Broadcast tenant-wide (unlike new_message, which requires having
+    // joined that specific conversation's room) - this is what makes a
+    // brand-new conversation (e.g. a contact's first-ever message) show up
+    // in the sidebar without the client ever having joined it.
+    socket.on('conversation_update', () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+
     socket.on('message_status_updated', () => {
-      if (selectedId) {
-        queryClient.invalidateQueries({ queryKey: ['conversations', selectedId, 'messages'] });
+      if (selectedIdRef.current) {
+        queryClient.invalidateQueries({ queryKey: ['conversations', selectedIdRef.current, 'messages'] });
       }
     });
 
     return () => {
       socket.off('new_message');
+      socket.off('conversation_update');
       socket.off('message_status_updated');
       disconnectSocket();
     };
-  }, [token, selectedId, queryClient]);
+  }, [token, queryClient]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
