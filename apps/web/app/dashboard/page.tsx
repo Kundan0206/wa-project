@@ -2,7 +2,7 @@
 
 import { MessageSquare, Users, Send, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { useAnalyticsOverview, useAnalyticsMessages, useCampaigns, useFlows } from '../../lib/hooks';
+import { useAnalyticsOverview, useAnalyticsMessages, useAnalyticsTrends, useCampaigns, useFlows } from '../../lib/hooks';
 import { useAuthStore } from '../../lib/store';
 
 const PIE_COLORS: Record<string, string> = {
@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const { data: overview } = useAnalyticsOverview();
   const { data: msgAnalytics } = useAnalyticsMessages();
+  const { data: trendsRes } = useAnalyticsTrends(7);
   const { data: campaigns } = useCampaigns({ limit: '3' });
   const { data: flows } = useFlows();
 
@@ -73,8 +74,21 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2 card">
           <h2 className="font-title-md text-ink mb-4">Message Trends</h2>
-          <div className="h-64 flex items-center justify-center text-muted font-body text-body-md">
-            Analytics chart available with historical data
+          <div className="h-64">
+            {trendsRes?.data && trendsRes.data.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendsRes.data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
+                  <XAxis dataKey="date" stroke="#777169" fontSize={11} tickFormatter={(d) => d.slice(5)} />
+                  <YAxis stroke="#777169" fontSize={12} allowDecimals={false} />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="sent" stroke="#292524" fill="#292524" fillOpacity={0.15} name="Sent" />
+                  <Area type="monotone" dataKey="delivered" stroke="#16a34a" fill="#16a34a" fillOpacity={0.15} name="Delivered" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted font-body text-body-md">No data yet</div>
+            )}
           </div>
         </div>
 

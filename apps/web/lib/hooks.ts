@@ -49,6 +49,20 @@ export function useAnalyticsMessages() {
   });
 }
 
+interface AnalyticsTrendPoint {
+  date: string;
+  sent: number;
+  delivered: number;
+  read: number;
+}
+
+export function useAnalyticsTrends(days: number = 7) {
+  return useQuery({
+    queryKey: ['analytics', 'trends', days],
+    queryFn: () => api.get<ApiResponse<AnalyticsTrendPoint[]>>('/api/v1/analytics/trends', { days: String(days) }),
+  });
+}
+
 // WABA
 export function useWabaAccounts() {
   return useQuery({
@@ -79,6 +93,22 @@ export function useDisconnectWaba() {
   return useMutation({
     mutationFn: (id: string) => api.delete<ApiResponse<void>>(`/api/v1/waba/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['waba'] }),
+  });
+}
+
+interface WabaMetaDetails {
+  id: string;
+  name?: string;
+  timezoneId?: string;
+  messageTemplateNamespace?: string;
+  currency?: string;
+}
+
+export function useWabaMetaDetails(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['waba', id, 'meta-details'],
+    queryFn: () => api.get<ApiResponse<WabaMetaDetails>>(`/api/v1/waba/meta-details/${id}`),
+    enabled,
   });
 }
 
@@ -160,6 +190,14 @@ export function useSubscribeWebhooks() {
   });
 }
 
+export function useSetDefaultPhoneNumber() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<ApiResponse<void>>(`/api/v1/phone-numbers/${id}/set-default`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['phone-numbers'] }),
+  });
+}
+
 // Inbox / Conversations
 export function useConversations(
   params?: { status?: string; assigned_to?: string; page?: string; limit?: string }
@@ -209,6 +247,15 @@ export function useResolveConversation() {
   return useMutation({
     mutationFn: (conversationId: string) =>
       api.post<ApiResponse<Conversation>>(`/api/v1/conversations/${conversationId}/resolve`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conversations'] }),
+  });
+}
+
+export function useUpdateConversationLabels() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ conversationId, labels }: { conversationId: string; labels: string[] }) =>
+      api.put<ApiResponse<Conversation>>(`/api/v1/conversations/${conversationId}/labels`, { labels }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['conversations'] }),
   });
 }
@@ -266,6 +313,23 @@ export function useSendCampaign() {
   });
 }
 
+interface CampaignAnalytics {
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  deliveryRate: string;
+  readRate: string;
+}
+
+export function useCampaignAnalytics(id: string) {
+  return useQuery({
+    queryKey: ['campaigns', id, 'analytics'],
+    queryFn: () => api.get<ApiResponse<CampaignAnalytics>>(`/api/v1/campaigns/${id}/analytics`),
+    enabled: !!id,
+  });
+}
+
 export function useDeleteCampaign() {
   const qc = useQueryClient();
   return useMutation({
@@ -287,6 +351,15 @@ export function useCreateContact() {
   return useMutation({
     mutationFn: (data: { phone: string; name?: string; email?: string; tags?: string[]; opted_in?: boolean }) =>
       api.post<ApiResponse<Contact>>('/api/v1/contacts', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['contacts'] }),
+  });
+}
+
+export function useUpdateContact() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; email?: string }) =>
+      api.put<ApiResponse<Contact>>(`/api/v1/contacts/${id}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['contacts'] }),
   });
 }
@@ -313,6 +386,31 @@ export function useFlows() {
   return useQuery({
     queryKey: ['flows'],
     queryFn: () => api.get<ApiResponse<Flow[]>>('/api/v1/flows'),
+  });
+}
+
+export function useCreateFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string; phone_number_id: string; trigger_type: string; trigger_value?: string;
+      nodes: unknown[]; edges: unknown[];
+    }) => api.post<ApiResponse<Flow>>('/api/v1/flows', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['flows'] }),
+  });
+}
+
+interface FlowAnalytics {
+  totalSessions: number;
+  completed: number;
+  completionRate: string;
+}
+
+export function useFlowAnalytics(id: string) {
+  return useQuery({
+    queryKey: ['flows', id, 'analytics'],
+    queryFn: () => api.get<ApiResponse<FlowAnalytics>>(`/api/v1/flows/${id}/analytics`),
+    enabled: !!id,
   });
 }
 
@@ -438,5 +536,196 @@ export function useWebhookLogs(params?: { page?: string; limit?: string }) {
   return useQuery({
     queryKey: ['webhooks', 'logs', params],
     queryFn: () => api.get<PaginatedResponse<WebhookLog>>('/api/v1/webhooks/logs', params as Record<string, string>),
+  });
+}
+
+// Team
+export interface TeamMember {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  avatarUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export function useTeamMembers() {
+  return useQuery({
+    queryKey: ['team', 'members'],
+    queryFn: () => api.get<ApiResponse<TeamMember[]>>('/api/v1/team/members'),
+  });
+}
+
+export function useInviteMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { email: string; name: string; role: 'admin' | 'agent' | 'viewer' }) =>
+      api.post<ApiResponse<TeamMember>>('/api/v1/team/invite', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team', 'members'] }),
+  });
+}
+
+export function useRemoveMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<ApiResponse<void>>(`/api/v1/team/members/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team', 'members'] }),
+  });
+}
+
+// API Keys
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export function useApiKeys() {
+  return useQuery({
+    queryKey: ['api-keys'],
+    queryFn: () => api.get<ApiResponse<ApiKey[]>>('/api/v1/api-keys'),
+  });
+}
+
+export function useCreateApiKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; scopes?: string[]; expires_at?: string }) =>
+      api.post<ApiResponse<ApiKey & { key: string }>>('/api/v1/api-keys', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
+  });
+}
+
+export function useDeleteApiKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<ApiResponse<void>>(`/api/v1/api-keys/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
+  });
+}
+
+// Billing
+export interface Plan {
+  id: string;
+  name: string;
+  priceMonthly: number;
+  priceYearly: number;
+  messageLimit: number;
+  contactLimit: number;
+  agentLimit: number;
+  features: Record<string, unknown>;
+}
+
+export interface Subscription {
+  id: string;
+  tenantId: string;
+  planId: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  description: string;
+  balanceAfter: number;
+  createdAt: string;
+}
+
+export function useBillingPlan() {
+  return useQuery({
+    queryKey: ['billing', 'plan'],
+    queryFn: () => api.get<ApiResponse<{ current: (Subscription & { plans: Plan }) | null; plans: Plan[] }>>('/api/v1/billing/plan'),
+  });
+}
+
+export function useBillingUsage() {
+  return useQuery({
+    queryKey: ['billing', 'usage'],
+    queryFn: () => api.get<ApiResponse<{ messages: number; contacts: number; agents: number }>>('/api/v1/billing/usage'),
+  });
+}
+
+export function useWallet() {
+  return useQuery({
+    queryKey: ['billing', 'wallet'],
+    queryFn: () => api.get<ApiResponse<{ balance: number; transactions: WalletTransaction[] }>>('/api/v1/billing/wallet'),
+  });
+}
+
+// Contact Segments
+export interface ContactSegment {
+  id: string;
+  tenantId: string;
+  name: string;
+  filters: unknown[];
+  contactCount: number;
+  createdAt: string;
+}
+
+export function useSegments() {
+  return useQuery({
+    queryKey: ['segments'],
+    queryFn: () => api.get<ApiResponse<ContactSegment[]>>('/api/v1/segments'),
+  });
+}
+
+export function useCreateSegment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; filters: unknown[] }) =>
+      api.post<ApiResponse<ContactSegment>>('/api/v1/segments', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['segments'] }),
+  });
+}
+
+export function useDeleteSegment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<ApiResponse<void>>(`/api/v1/segments/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['segments'] }),
+  });
+}
+
+// Media Library
+export interface MediaFile {
+  id: string;
+  originalName: string;
+  fileType: string;
+  mimeType: string;
+  sizeBytes: number;
+  publicUrl: string | null;
+  whatsappMediaId: string | null;
+  createdAt: string;
+}
+
+export function useMediaFiles(params?: { page?: string; limit?: string }) {
+  return useQuery({
+    queryKey: ['media', params],
+    queryFn: () => api.get<ApiResponse<MediaFile[]>>('/api/v1/media', params as Record<string, string>),
+  });
+}
+
+export function useUploadMedia() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { file: string; file_type: string; file_name: string }) =>
+      api.post<ApiResponse<MediaFile>>('/api/v1/media/upload', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
+  });
+}
+
+export function useDeleteMedia() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<ApiResponse<void>>(`/api/v1/media/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
   });
 }

@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest, asyncHandler } from '../middleware/auth.js';
+import { resolveSegmentContacts } from '../services/segment.service.js';
 
 const router = Router();
 
@@ -30,13 +31,15 @@ router.post('/', authenticate, asyncHandler(async (req: AuthRequest, res: Respon
   const data = createSegmentSchema.parse(req.body);
   const supabase = req.supabase!;
 
+  const matching = await resolveSegmentContacts(supabase, req.tenantId!, data.filters);
+
   const { data: segment, error } = await supabase
     .from('contact_segments')
     .insert({
       tenant_id: req.tenantId!,
       name: data.name,
       filters: data.filters,
-      contact_count: 0
+      contact_count: matching.length
     })
     .select()
     .single();

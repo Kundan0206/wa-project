@@ -160,6 +160,44 @@ router.delete('/:id', authenticate, asyncHandler(async (req: AuthRequest, res: R
   res.json({ success: true, message: 'Phone number removed' });
 }));
 
+router.post('/:id/set-default', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const { id } = req.params;
+
+  const { data: phoneNumber } = await supabase
+    .from('phone_numbers')
+    .select('id, waba_id')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (!phoneNumber) {
+    res.status(404).json({ error: 'Phone number not found' });
+    return;
+  }
+
+  // Only one default per WABA - clear any existing default on the same
+  // account before setting the new one.
+  await supabase
+    .from('phone_numbers')
+    .update({ is_default: false })
+    .eq('waba_id', phoneNumber.waba_id)
+    .eq('tenant_id', req.tenantId);
+
+  const { error } = await supabase
+    .from('phone_numbers')
+    .update({ is_default: true })
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ success: true, message: 'Default phone number updated' });
+}));
+
 router.get('/:id/quality', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const supabase = req.supabase!;
   const { id } = req.params;

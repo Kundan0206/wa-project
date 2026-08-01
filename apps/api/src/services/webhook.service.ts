@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase.js';
 import { io } from '../index.js';
+import { toCamelCase } from '../middleware/camelCase.js';
+import { findMatchingFlow, runFlow } from './flow.service.js';
 
 let supabaseInstance: any = null;
 
@@ -176,11 +178,22 @@ async function handleIncomingMessage(message: any, contacts: any[] = [], phoneNu
   }
 
   if (conversation) {
-    io.to(`tenant:${phone.tenant_id}:conversation:${conversation.id}`).emit('new_message', newMessage);
+    io.to(`tenant:${phone.tenant_id}:conversation:${conversation.id}`).emit('new_message', toCamelCase(newMessage));
     io.to(`tenant:${phone.tenant_id}`).emit('conversation_update', {
       conversationId: conversation.id,
       lastMessage: messageContent?.substring(0, 50)
     });
+  }
+
+  if (contact) {
+    try {
+      const flow = await findMatchingFlow(db, phone.id, contact.id, messageContent);
+      if (flow) {
+        await runFlow({ db, flow, phone, contact, incomingText: messageContent });
+      }
+    } catch (err: any) {
+      console.error('Flow execution failed:', err.message);
+    }
   }
 }
 

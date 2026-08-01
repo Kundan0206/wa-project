@@ -53,6 +53,7 @@ export enum MessageStatus {
 
 export enum MessageType {
   TEXT = 'text',
+  TEMPLATE = 'template',
   IMAGE = 'image',
   VIDEO = 'video',
   AUDIO = 'audio',
@@ -195,8 +196,8 @@ export interface Message {
   phoneNumberId: string;
   wamid?: string;
   direction: MessageDirection;
-  to: string;
-  from: string;
+  recipient: string;
+  sender: string;
   type: MessageType;
   content?: string;
   status: MessageStatus;

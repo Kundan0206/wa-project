@@ -13,7 +13,7 @@ declare global {
 import {
   useWabaAccounts, useDisconnectWaba, usePhoneNumbers, useEmbeddedCallback,
   useSyncPhoneNumbers, useRegisterPhoneNumber, useDeregisterPhoneNumber,
-  useRequestVerificationCode, useVerifyPhoneCode
+  useRequestVerificationCode, useVerifyPhoneCode, useWabaMetaDetails, useSetDefaultPhoneNumber
 } from '../../../lib/hooks';
 
 const qualityColors: Record<string, string> = {
@@ -46,6 +46,7 @@ function WhatsAppContent() {
   const [verifyCode, setVerifyCode] = useState('');
   const [embeddedSignupLoaded, setEmbeddedSignupLoaded] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [detailsWabaId, setDetailsWabaId] = useState<string | null>(null);
   const fbRef = useRef<any>(null);
 
   const { data: wabaRes, isLoading: wabaLoading, refetch } = useWabaAccounts();
@@ -57,6 +58,7 @@ function WhatsAppContent() {
   const deregisterPhone = useDeregisterPhoneNumber();
   const requestCode = useRequestVerificationCode();
   const verifyCodeMutation = useVerifyPhoneCode();
+  const setDefaultPhone = useSetDefaultPhoneNumber();
 
   const accounts = wabaRes?.data || [];
   const phoneNumbers = phoneRes?.data || [];
@@ -271,17 +273,17 @@ function WhatsAppContent() {
                     <span className="text-body-strong">{account.currency}</span>
                   </div>
                   <div className="flex justify-between font-body text-body-md">
-                    <span className="text-muted">Timezone</span>
+                    <span className="text-muted">Timezone ID</span>
                     <span className="text-body-strong">{account.timezone}</span>
                   </div>
                   <div className="flex justify-between font-body text-body-md">
                     <span className="text-muted">Phone Numbers</span>
-                    <span className="text-body-strong">{(account as any).phone_numbers?.length || 0}</span>
+                    <span className="text-body-strong">{(account as any).phoneNumbers?.length || 0}</span>
                   </div>
                 </div>
 
                 <div className="flex space-x-sm pt-md border-t border-hairline">
-                  <button 
+                  <button
                     onClick={handleSync}
                     disabled={syncPhoneNumbers.isPending}
                     className="flex-1 flex items-center justify-center space-x-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition disabled:opacity-50"
@@ -289,9 +291,12 @@ function WhatsAppContent() {
                     <RefreshCw className={`w-4 h-4 ${syncPhoneNumbers.isPending ? 'animate-spin' : ''}`} />
                     <span>{syncPhoneNumbers.isPending ? 'Syncing...' : 'Sync'}</span>
                   </button>
-                  <button className="flex-1 flex items-center justify-center space-x-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition">
+                  <button
+                    onClick={() => setDetailsWabaId(account.id)}
+                    className="flex-1 flex items-center justify-center space-x-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition"
+                  >
                     <Settings className="w-4 h-4" />
-                    <span>Settings</span>
+                    <span>Details</span>
                   </button>
                   <button
                     onClick={() => handleDisconnect(account.id)}
@@ -366,7 +371,13 @@ function WhatsAppContent() {
                       {phone.isDefault ? (
                         <span className="bg-surface-strong text-ink text-caption-uppercase px-sm py-xxs rounded-pill font-medium">Default</span>
                       ) : (
-                        <button className="font-body text-body-sm text-primary hover:underline">Set as default</button>
+                        <button
+                          onClick={() => setDefaultPhone.mutate(phone.id)}
+                          disabled={setDefaultPhone.isPending}
+                          className="font-body text-body-sm text-primary hover:underline disabled:opacity-50"
+                        >
+                          Set as default
+                        </button>
                       )}
                     </td>
                     <td className="px-md py-md">
@@ -561,6 +572,61 @@ function WhatsAppContent() {
               >
                 {verifyCodeMutation.isPending ? 'Verifying...' : 'Verify'}
               </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {detailsWabaId && (
+        <WabaDetailsModal wabaId={detailsWabaId} onClose={() => setDetailsWabaId(null)} />
+      )}
+    </div>
+  );
+}
+
+function WabaDetailsModal({ wabaId, onClose }: { wabaId: string; onClose: () => void }) {
+  const { data, isLoading, error } = useWabaMetaDetails(wabaId, true);
+  const details = data?.data;
+
+  return (
+    <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
+      <div className="bg-surface-card rounded-xl p-xl w-full max-w-md border border-hairline shadow-soft">
+        <div className="flex items-center justify-between mb-md">
+          <h2 className="font-display text-display-sm text-ink">Account Details</h2>
+          <button onClick={onClose} className="p-xs hover:bg-hairline-soft rounded">
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-sm">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-8 bg-hairline-soft rounded animate-pulse" />
+            ))}
+          </div>
+        ) : error || !details ? (
+          <p className="font-body text-body-md text-error text-center py-lg">Failed to load account details from Meta</p>
+        ) : (
+          <div className="space-y-sm">
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Name</span>
+              <span className="text-body-strong">{details.name || '-'}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">WABA ID</span>
+              <span className="text-body-strong">{details.id}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Currency</span>
+              <span className="text-body-strong">{details.currency || '-'}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Timezone ID</span>
+              <span className="text-body-strong">{details.timezoneId || '-'}</span>
+            </div>
+            <div className="flex justify-between font-body text-body-md">
+              <span className="text-muted">Template Namespace</span>
+              <span className="text-body-strong text-caption break-all">{details.messageTemplateNamespace || '-'}</span>
             </div>
           </div>
         )}

@@ -1,17 +1,39 @@
 'use client';
 
 import { useState } from 'react';
-import { Calendar } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line } from 'recharts';
-import { useAnalyticsOverview, useAnalyticsMessages } from '../../../lib/hooks';
+import { Calendar, Download } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { useAnalyticsOverview, useAnalyticsMessages, useAnalyticsTrends } from '../../../lib/hooks';
+
+const PERIODS = [
+  { label: 'Last 7 days', value: 7 },
+  { label: 'Last 30 days', value: 30 },
+  { label: 'Last 90 days', value: 90 },
+];
+
+function downloadTrendsCsv(trends: { date: string; sent: number; delivered: number; read: number }[]) {
+  const header = ['date', 'sent', 'delivered', 'read'];
+  const rows = trends.map((t) => [t.date, t.sent, t.delivered, t.read]);
+  const csv = [header, ...rows].map((row) => row.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function AnalyticsPage() {
-  const [period, setPeriod] = useState('7d');
+  const [days, setDays] = useState(7);
+  const [showPeriodMenu, setShowPeriodMenu] = useState(false);
   const { data: overviewRes } = useAnalyticsOverview();
   const { data: msgRes } = useAnalyticsMessages();
+  const { data: trendsRes } = useAnalyticsTrends(days);
 
   const overview = overviewRes?.data;
   const msgData = msgRes?.data;
+  const trends = trendsRes?.data || [];
 
   const stats = [
     { label: 'Total Sent', value: overview?.totalMessages?.toLocaleString() || '0', change: '' },
@@ -29,6 +51,8 @@ export default function AnalyticsPage() {
       }))
     : [];
 
+  const currentPeriodLabel = PERIODS.find((p) => p.value === days)?.label || 'Custom';
+
   return (
     <div className="p-section min-h-screen bg-canvas">
       <div className="max-w-content mx-auto">
@@ -38,11 +62,36 @@ export default function AnalyticsPage() {
             <p className="font-body text-body-md text-muted mt-xs">Track your messaging performance</p>
           </div>
           <div className="flex items-center space-x-sm">
-            <button className="flex items-center space-x-sm px-md py-sm border border-hairline-strong rounded-md font-body text-body-sm text-ink hover:bg-hairline-soft transition">
-              <Calendar className="w-4 h-4 text-muted" />
-              <span className="font-body text-body-sm">Last 7 days</span>
+            <div className="relative">
+              <button
+                onClick={() => setShowPeriodMenu((v) => !v)}
+                className="flex items-center space-x-sm px-md py-sm border border-hairline-strong rounded-md font-body text-body-sm text-ink hover:bg-hairline-soft transition"
+              >
+                <Calendar className="w-4 h-4 text-muted" />
+                <span className="font-body text-body-sm">{currentPeriodLabel}</span>
+              </button>
+              {showPeriodMenu && (
+                <div className="absolute right-0 mt-xs bg-surface-card border border-hairline rounded-md shadow-soft z-10 min-w-[10rem]">
+                  {PERIODS.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => { setDays(p.value); setShowPeriodMenu(false); }}
+                      className={`block w-full text-left px-md py-sm font-body text-body-sm hover:bg-hairline-soft transition ${days === p.value ? 'text-primary' : 'text-ink'}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => downloadTrendsCsv(trends)}
+              disabled={trends.length === 0}
+              className="flex items-center space-x-xs px-md py-sm border border-hairline-strong rounded-md font-body text-body-sm text-ink hover:bg-hairline-soft transition disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
             </button>
-            <button className="px-md py-sm border border-hairline-strong rounded-md font-body text-body-sm text-ink hover:bg-hairline-soft transition">Export</button>
           </div>
         </div>
 
@@ -58,8 +107,22 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-lg mb-section">
           <div className="bg-surface-card border border-hairline rounded-xl p-lg">
             <h2 className="font-display text-display-sm text-ink mb-md">Message Trends</h2>
-            <div className="h-96 flex items-center justify-center text-muted font-body text-body-md">
-              Historical chart available with time-series data
+            <div className="h-96">
+              {trends.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trends}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
+                    <XAxis dataKey="date" stroke="#777169" fontSize={11} tickFormatter={(d) => d.slice(5)} />
+                    <YAxis stroke="#777169" fontSize={12} allowDecimals={false} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="sent" stroke="#292524" fill="#292524" fillOpacity={0.15} name="Sent" />
+                    <Area type="monotone" dataKey="delivered" stroke="#16a34a" fill="#16a34a" fillOpacity={0.15} name="Delivered" />
+                    <Area type="monotone" dataKey="read" stroke="#777169" fill="#777169" fillOpacity={0.1} name="Read" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted font-body text-body-sm">No data yet</div>
+              )}
             </div>
           </div>
 

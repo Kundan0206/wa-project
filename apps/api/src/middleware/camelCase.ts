@@ -24,7 +24,14 @@ function snakeToCamel(key: string): string {
   return key.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase());
 }
 
-function toCamelCase(value: unknown): unknown {
+/**
+ * Recursively converts an object/array's keys from snake_case to camelCase,
+ * preserving the contents of known opaque JSONB fields untouched. Shared by
+ * the HTTP response middleware below and by Socket.IO emit call sites, so
+ * every payload the frontend receives - over REST or over the socket - uses
+ * the same casing the shared TypeScript types expect.
+ */
+export function toCamelCase(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(toCamelCase);
   }

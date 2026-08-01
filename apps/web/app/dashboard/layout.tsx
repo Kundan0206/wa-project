@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, MessageSquare, Users, Send, Bot, BarChart3,
-  Settings, Phone, FileText, ScrollText
+  Settings, Phone, FileText, ScrollText, Image as ImageIcon,
+  UserCog, Key, CreditCard
 } from 'lucide-react';
 import { useAuthStore } from '../../lib/store';
 
@@ -15,6 +16,7 @@ const navItems = [
   { href: '/dashboard/campaigns', label: 'Campaigns', icon: Send },
   { href: '/dashboard/templates', label: 'Templates', icon: FileText },
   { href: '/dashboard/contacts', label: 'Contacts', icon: Users },
+  { href: '/dashboard/media', label: 'Media', icon: ImageIcon },
   { href: '/dashboard/flows', label: 'Chatbots', icon: Bot },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: Phone },
@@ -22,6 +24,9 @@ const navItems = [
 
 const settingsItems = [
   { href: '/dashboard/logs', label: 'Logs', icon: ScrollText },
+  { href: '/dashboard/team', label: 'Team', icon: UserCog },
+  { href: '/dashboard/api-keys', label: 'API Keys', icon: Key },
+  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

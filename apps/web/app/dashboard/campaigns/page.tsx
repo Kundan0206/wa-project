@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, Play, MoreVertical, BarChart2, X } from 'lucide-react';
+import { Plus, Search, Play, Trash2, BarChart2, X } from 'lucide-react';
 import {
   useCampaigns, useSendCampaign, useDeleteCampaign, useCreateCampaign,
-  useTemplates, usePhoneNumbers
+  useTemplates, usePhoneNumbers, useCampaignAnalytics
 } from '../../../lib/hooks';
 
 const statusColors: Record<string, string> = {
@@ -28,6 +28,7 @@ export default function CampaignsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const [analyticsCampaign, setAnalyticsCampaign] = useState<{ id: string; name: string } | null>(null);
   const { data: campaignsRes, isLoading } = useCampaigns();
   const { data: templatesRes } = useTemplates({ status: 'approved' });
   const { data: phoneRes } = usePhoneNumbers();
@@ -71,6 +72,18 @@ export default function CampaignsPage() {
       setForm(emptyForm);
     } catch (err: any) {
       setFormError(err.message || 'Failed to create campaign');
+    }
+  };
+
+  const handleSend = (id: string, name: string) => {
+    if (confirm(`Send "${name}" now? This will message every contact in the audience.`)) {
+      sendCampaign.mutate(id);
+    }
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`Delete campaign "${name}"? This cannot be undone.`)) {
+      deleteCampaign.mutate(id);
     }
   };
 
@@ -162,17 +175,29 @@ export default function CampaignsPage() {
                         <td className="px-md py-sm">
                           <div className="flex items-center space-x-sm">
                             {campaign.status === 'draft' && (
-                              <button onClick={() => sendCampaign.mutate(campaign.id)} className="p-xs hover:bg-hairline-soft rounded-md transition">
+                              <button
+                                onClick={() => handleSend(campaign.id, campaign.name)}
+                                title="Send campaign"
+                                className="p-xs hover:bg-hairline-soft rounded-md transition"
+                              >
                                 <Play className="w-4 h-4 text-muted" />
                               </button>
                             )}
-                            {campaign.status === 'completed' && (
-                              <button className="p-xs hover:bg-hairline-soft rounded-md transition">
+                            {(campaign.status === 'completed' || campaign.status === 'running') && (
+                              <button
+                                onClick={() => setAnalyticsCampaign({ id: campaign.id, name: campaign.name })}
+                                title="View analytics"
+                                className="p-xs hover:bg-hairline-soft rounded-md transition"
+                              >
                                 <BarChart2 className="w-4 h-4 text-muted" />
                               </button>
                             )}
-                            <button onClick={() => deleteCampaign.mutate(campaign.id)} className="p-xs hover:bg-hairline-soft rounded-md transition">
-                              <MoreVertical className="w-4 h-4 text-muted" />
+                            <button
+                              onClick={() => handleDelete(campaign.id, campaign.name)}
+                              title="Delete campaign"
+                              className="p-xs hover:bg-red-50 rounded-md transition"
+                            >
+                              <Trash2 className="w-4 h-4 text-muted hover:text-error" />
                             </button>
                           </div>
                         </td>
@@ -276,6 +301,63 @@ export default function CampaignsPage() {
           </div>
         </div>
       )}
+
+      {analyticsCampaign && (
+        <CampaignAnalyticsModal
+          campaignId={analyticsCampaign.id}
+          campaignName={analyticsCampaign.name}
+          onClose={() => setAnalyticsCampaign(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CampaignAnalyticsModal({ campaignId, campaignName, onClose }: { campaignId: string; campaignName: string; onClose: () => void }) {
+  const { data, isLoading } = useCampaignAnalytics(campaignId);
+  const analytics = data?.data;
+
+  return (
+    <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
+      <div className="bg-surface-card rounded-xl p-xl w-full max-w-md border border-hairline shadow-soft">
+        <div className="flex items-center justify-between mb-md">
+          <h2 className="font-display text-display-sm text-ink">{campaignName}</h2>
+          <button onClick={onClose} className="p-xs hover:bg-hairline-soft rounded">
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-md">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-16 bg-hairline-soft rounded animate-pulse" />
+            ))}
+          </div>
+        ) : analytics ? (
+          <div className="grid grid-cols-2 gap-md">
+            <div className="p-md bg-canvas-soft rounded-lg">
+              <div className="font-body text-caption text-muted">Sent</div>
+              <div className="font-display text-display-sm text-ink">{analytics.sent.toLocaleString()}</div>
+            </div>
+            <div className="p-md bg-canvas-soft rounded-lg">
+              <div className="font-body text-caption text-muted">Failed</div>
+              <div className="font-display text-display-sm text-error">{analytics.failed.toLocaleString()}</div>
+            </div>
+            <div className="p-md bg-canvas-soft rounded-lg">
+              <div className="font-body text-caption text-muted">Delivered</div>
+              <div className="font-display text-display-sm text-ink">{analytics.delivered.toLocaleString()}</div>
+              <div className="font-body text-caption text-muted-soft">{analytics.deliveryRate}%</div>
+            </div>
+            <div className="p-md bg-canvas-soft rounded-lg">
+              <div className="font-body text-caption text-muted">Read</div>
+              <div className="font-display text-display-sm text-ink">{analytics.read.toLocaleString()}</div>
+              <div className="font-body text-caption text-muted-soft">{analytics.readRate}%</div>
+            </div>
+          </div>
+        ) : (
+          <p className="font-body text-body-md text-muted text-center py-lg">No analytics available yet</p>
+        )}
+      </div>
     </div>
   );
 }

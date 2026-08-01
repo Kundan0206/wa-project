@@ -144,7 +144,7 @@ router.get('/:id', authenticate, asyncHandler(async (req: AuthRequest, res: Resp
 
 router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const supabase = req.supabase!;
-  const { contact, status, type, page = '1', limit = '20' } = req.query;
+  const { contact, conversation, status, type, page = '1', limit = '20' } = req.query;
 
   let query = supabase
     .from('messages')
@@ -152,13 +152,16 @@ router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Respons
     .eq('tenant_id', req.tenantId);
 
   if (contact) query = query.eq('contact_id', contact);
+  if (conversation) query = query.eq('conversation_id', conversation);
   if (status) query = query.eq('status', status);
   if (type) query = query.eq('type', type);
 
   const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
+  // Conversation threads read oldest-first (like a chat); other listings
+  // (e.g. a flat message log) stay newest-first.
   const { data: messages, error } = await query
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: !!conversation })
     .range(skip, skip + parseInt(limit as string) - 1);
 
   if (error) {

@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { supabase } from '../lib/supabase.js';
 import { sendWhatsAppMessage, sendTemplateMessage } from '../services/whatsapp.service.js';
+import { resolveSegmentContacts } from '../services/segment.service.js';
 import { io } from '../index.js';
 
 interface MessageJob {
@@ -116,16 +117,29 @@ async function processCampaignJob(data: CampaignJob) {
 
   if (!campaign) return;
 
-  const { data: contacts } = await supabase
-    .from('contacts')
-    .select('*')
-    .eq('tenant_id', campaign.tenant_id)
-    .eq('opted_in', true);
+  let contacts: any[] = [];
+
+  if (campaign.audience_type === 'segment' && campaign.segment_id) {
+    const { data: segment } = await supabase
+      .from('contact_segments')
+      .select('filters')
+      .eq('id', campaign.segment_id)
+      .single();
+    const matched = segment ? await resolveSegmentContacts(supabase, campaign.tenant_id, segment.filters) : [];
+    contacts = matched.filter((c) => c.opted_in);
+  } else {
+    const { data } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('tenant_id', campaign.tenant_id)
+      .eq('opted_in', true);
+    contacts = data || [];
+  }
 
   let sent = 0;
   let failed = 0;
 
-  for (const contact of contacts || []) {
+  for (const contact of contacts) {
     try {
       const { data: message } = await supabase
         .from('messages')

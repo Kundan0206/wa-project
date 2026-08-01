@@ -53,4 +53,39 @@ router.get('/inbox', authenticate, asyncHandler(async (req: AuthRequest, res: Re
   res.json({ success: true, data: { conversationsByAgent: {}, avgFirstResponseTime: 0 } });
 }));
 
+router.get('/trends', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const days = Math.min(parseInt(req.query.days as string) || 7, 90);
+
+  const since = new Date();
+  since.setDate(since.getDate() - (days - 1));
+  since.setHours(0, 0, 0, 0);
+
+  const { data: messages } = await supabase
+    .from('messages')
+    .select('created_at, direction, status')
+    .eq('tenant_id', req.tenantId)
+    .gte('created_at', since.toISOString());
+
+  const buckets = new Map<string, { sent: number; delivered: number; read: number }>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(since);
+    d.setDate(d.getDate() + i);
+    buckets.set(d.toISOString().slice(0, 10), { sent: 0, delivered: 0, read: 0 });
+  }
+
+  for (const m of messages || []) {
+    const day = m.created_at.slice(0, 10);
+    const bucket = buckets.get(day);
+    if (!bucket) continue;
+    if (m.direction === 'outbound') bucket.sent++;
+    if (m.status === 'delivered' || m.status === 'read') bucket.delivered++;
+    if (m.status === 'read') bucket.read++;
+  }
+
+  const trends = Array.from(buckets.entries()).map(([date, counts]) => ({ date, ...counts }));
+
+  res.json({ success: true, data: trends });
+}));
+
 export default router;

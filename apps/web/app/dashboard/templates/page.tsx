@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Search, Eye, Trash2, X } from 'lucide-react';
 import { useTemplates, useDeleteTemplate, useCreateTemplate } from '../../../lib/hooks';
+import type { Template } from '@wa/shared';
 
 const statusColors: Record<string, string> = {
   approved: 'bg-success/10 text-success',
@@ -32,6 +33,7 @@ export default function TemplatesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const [viewTemplate, setViewTemplate] = useState<Template | null>(null);
   const { data: templatesRes, isLoading } = useTemplates(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
   );
@@ -149,7 +151,7 @@ export default function TemplatesPage() {
                         <span className="font-body text-caption text-muted-soft">{template.language}</span>
                       </div>
                     </div>
-                    <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[template.status] || statusColors.PENDING}`}>
+                    <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[template.status] || statusColors.pending}`}>
                       {template.status}
                     </span>
                   </div>
@@ -172,12 +174,23 @@ export default function TemplatesPage() {
                   <div className="flex items-center justify-between">
                     <span className="font-body text-caption text-muted">{template.qualityScore ? `${template.qualityScore}/10` : 'N/A'}</span>
                     <div className="flex space-x-xs">
-                      <button className="p-xs hover:bg-hairline-soft rounded-md transition"><Eye className="w-4 h-4 text-muted" /></button>
                       <button
-                        onClick={() => deleteTemplate.mutate(template.id)}
+                        onClick={() => setViewTemplate(template)}
+                        title="View components"
                         className="p-xs hover:bg-hairline-soft rounded-md transition"
                       >
-                        <Trash2 className="w-4 h-4 text-muted" />
+                        <Eye className="w-4 h-4 text-muted" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete template "${template.name}"? This removes it from Meta permanently.`)) {
+                            deleteTemplate.mutate(template.id);
+                          }
+                        }}
+                        title="Delete template"
+                        className="p-xs hover:bg-red-50 rounded-md transition"
+                      >
+                        <Trash2 className="w-4 h-4 text-muted hover:text-error" />
                       </button>
                     </div>
                   </div>
@@ -294,6 +307,48 @@ export default function TemplatesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewTemplate && (
+        <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
+          <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="font-display text-display-sm text-ink">{viewTemplate.name}</h2>
+              <button onClick={() => setViewTemplate(null)} className="p-xs hover:bg-hairline-soft rounded">
+                <X className="w-5 h-5 text-muted" />
+              </button>
+            </div>
+            <div className="flex items-center space-x-sm mb-md">
+              <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${categoryColors[viewTemplate.category] || categoryColors.utility}`}>
+                {viewTemplate.category}
+              </span>
+              <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[viewTemplate.status] || statusColors.pending}`}>
+                {viewTemplate.status}
+              </span>
+              <span className="font-body text-caption text-muted">{viewTemplate.language}</span>
+            </div>
+            <div className="space-y-sm">
+              {(viewTemplate.components || []).map((comp: any, i: number) => (
+                <div key={i} className="border border-hairline rounded-lg p-md">
+                  <div className="font-body text-caption-uppercase text-muted mb-xs">{comp.type}</div>
+                  {comp.text && <p className="font-body text-body-md text-ink whitespace-pre-wrap">{comp.text}</p>}
+                  {comp.buttons && (
+                    <div className="flex flex-wrap gap-xs mt-xs">
+                      {comp.buttons.map((btn: any, bi: number) => (
+                        <span key={bi} className="font-body text-caption bg-hairline-soft text-body px-sm py-xxs rounded">{btn.text}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {viewTemplate.status === 'rejected' && viewTemplate.rejectionReason && (
+              <div className="font-body text-caption text-error bg-error/10 p-sm rounded mt-md">
+                Rejection reason: {viewTemplate.rejectionReason}
+              </div>
+            )}
           </div>
         </div>
       )}

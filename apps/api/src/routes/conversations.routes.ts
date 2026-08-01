@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate, AuthRequest, asyncHandler } from '../middleware/auth.js';
 import { io } from '../index.js';
 import { addToMessageQueue } from '../queue/index.js';
+import { toCamelCase } from '../middleware/camelCase.js';
 
 const router = Router();
 
@@ -71,6 +72,32 @@ router.post('/:id/assign', authenticate, asyncHandler(async (req: AuthRequest, r
   }
 
   io.to(`tenant:${req.tenantId}:conversation:${id}`).emit('conversation_assigned', { conversationId: id, assignedTo: assigned_to });
+
+  res.json({ success: true, data: conversation });
+}));
+
+router.put('/:id/labels', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { labels } = req.body;
+  const supabase = req.supabase!;
+  const { id } = req.params;
+
+  if (!Array.isArray(labels) || !labels.every((l) => typeof l === 'string')) {
+    res.status(400).json({ error: 'labels must be an array of strings' });
+    return;
+  }
+
+  const { data: conversation, error } = await supabase
+    .from('conversations')
+    .update({ labels })
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .select()
+    .single();
+
+  if (error || !conversation) {
+    res.status(404).json({ error: 'Conversation not found' });
+    return;
+  }
 
   res.json({ success: true, data: conversation });
 }));
@@ -146,7 +173,7 @@ router.post('/:id/send', authenticate, asyncHandler(async (req: AuthRequest, res
     content: message
   });
 
-  io.to(`tenant:${req.tenantId}:conversation:${id}`).emit('new_message', msg);
+  io.to(`tenant:${req.tenantId}:conversation:${id}`).emit('new_message', toCamelCase(msg));
 
   res.status(201).json({ success: true, data: msg });
 }));
