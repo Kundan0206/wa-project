@@ -11,7 +11,7 @@ declare global {
   }
 }
 import {
-  useWabaAccounts, useDisconnectWaba, usePhoneNumbers, useDiscoverWabas, useSelectWaba,
+  useWabaAccounts, useDisconnectWaba, usePhoneNumbers, useEmbeddedCallback,
   useSyncPhoneNumbers, useRegisterPhoneNumber, useDeregisterPhoneNumber,
   useRequestVerificationCode, useVerifyPhoneCode
 } from '../../../lib/hooks';
@@ -36,9 +36,7 @@ const statusLabels: Record<string, string> = {
 
 function WhatsAppContent() {
   const searchParams = useSearchParams();
-  const [showConnect, setShowConnect] = useState(false);
   const [showAddNumber, setShowAddNumber] = useState(false);
-  const [authCode, setAuthCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [codeSuccess, setCodeSuccess] = useState('');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -47,18 +45,13 @@ function WhatsAppContent() {
   const [registerPin, setRegisterPin] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
   const [embeddedSignupLoaded, setEmbeddedSignupLoaded] = useState(false);
-  const [discoveredWabas, setDiscoveredWabas] = useState<Array<{
-    wabaId: string; wabaName?: string; currency?: string; timezone?: string;
-    alreadyConnected: boolean; connectedToAnotherWorkspace: boolean;
-  }> | null>(null);
-  const [selectionToken, setSelectionToken] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const fbRef = useRef<any>(null);
 
   const { data: wabaRes, isLoading: wabaLoading, refetch } = useWabaAccounts();
   const { data: phoneRes, refetch: refetchPhones } = usePhoneNumbers();
   const disconnectWaba = useDisconnectWaba();
-  const discoverWabas = useDiscoverWabas();
-  const selectWaba = useSelectWaba();
+  const embeddedCallback = useEmbeddedCallback();
   const syncPhoneNumbers = useSyncPhoneNumbers();
   const registerPhone = useRegisterPhoneNumber();
   const deregisterPhone = useDeregisterPhoneNumber();
@@ -69,57 +62,45 @@ function WhatsAppContent() {
   const phoneNumbers = phoneRes?.data || [];
 
   useEffect(() => {
-    const code = searchParams.get('code');
     const error = searchParams.get('error');
     const message = searchParams.get('message');
-    const embeddedCode = searchParams.get('embedded_code');
-    const embeddedToken = searchParams.get('access_token');
 
-    if (code) {
-      setAuthCode(code);
-      setShowConnect(true);
-      window.history.replaceState({}, '', '/dashboard/whatsapp');
-    }
-    if (embeddedCode || embeddedToken) {
-      if (embeddedCode) {
-        handleEmbeddedSignupCallback(embeddedCode);
-      } else if (embeddedToken) {
-        handleEmbeddedSignupCallback(embeddedToken);
-      }
-      window.history.replaceState({}, '', '/dashboard/whatsapp');
-    }
     if (error) {
       setCodeError(message || 'OAuth error');
+      window.history.replaceState({}, '', '/dashboard/whatsapp');
     }
   }, [searchParams]);
 
-  const [wabaPhoneData, setWabaPhoneData] = useState<any>(null);
-
-  const handleEmbeddedSignupCallback = async (code: string, wabaId?: string, phoneId?: string) => {
+  const handleEmbeddedSignupCallback = async (code: string) => {
+    setConnecting(true);
+    setCodeError('');
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/embedded-callback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ 
-          code,
-          wabaId: wabaId || wabaPhoneData?.wabaId,
-          phoneId: phoneId || wabaPhoneData?.phoneId
-        })
-      });
-      setCodeSuccess('New WhatsApp account created successfully!');
+      const res = await embeddedCallback.mutateAsync(code);
+      const { wabaIds = [], skipped = [] } = res.data || {};
+
+      if (wabaIds.length > 0) {
+        setCodeSuccess(
+          wabaIds.length === 1
+            ? 'WhatsApp Business Account connected successfully!'
+            : `Connected ${wabaIds.length} WhatsApp Business Accounts successfully!`
+        );
+      } else if (skipped.length > 0) {
+        setCodeError('That WhatsApp Business Account is already connected to another workspace.');
+      } else {
+        setCodeError('No WhatsApp Business Account was returned by Meta. Please try again.');
+      }
       refetch();
     } catch (err: any) {
-      setCodeError(err.message || 'Failed to create WhatsApp account');
+      setCodeError(err.message || 'Failed to connect WhatsApp Business Account');
+    } finally {
+      setConnecting(false);
     }
   };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !fbRef.current) {
       const appId = process.env.NEXT_PUBLIC_META_APP_ID || '1198923135565390';
-      
+
       window.fbAsyncInit = function() {
         window.FB.init({
           appId: appId,
@@ -138,24 +119,22 @@ function WhatsAppContent() {
         js.src = "https://connect.facebook.net/en_US/sdk.js";
         fjs.parentNode?.insertBefore(js, fjs);
       }(document, 'script', 'facebook-jssdk'));
-
-      window.addEventListener('message', (event) => {
-        if (event.data && event.data.type === 'WA_EMBEDDED_SIGNUP_SESSION') {
-          setWabaPhoneData({
-            wabaId: event.data.waba_id,
-            phoneId: event.data.phone_id,
-            phoneNumber: event.data.phone_number
-          });
-        }
-      });
     }
   }, []);
 
+  // Meta's Embedded Signup dialog is used for both connecting an existing
+  // WhatsApp Business Account and creating a new one - it shows the user's
+  // existing accounts (if any) as part of its own UI, and the backend
+  // (embedded-callback) discovers and connects whichever account results,
+  // instead of always assuming a brand new one was created.
   const startEmbeddedSignup = () => {
     if (typeof window !== 'undefined' && window.FB) {
+      setCodeError('');
       window.FB.login((response: any) => {
         if (response.authResponse && response.authResponse.code) {
           handleEmbeddedSignupCallback(response.authResponse.code);
+        } else {
+          setCodeError('Meta login was cancelled or did not return an authorization code.');
         }
       }, {
         config_id: '2026748608261800',
@@ -165,53 +144,6 @@ function WhatsAppContent() {
       });
     } else {
       setCodeError('Facebook SDK not loaded. Please refresh and try again.');
-    }
-  };
-  const handleConnectSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authCode.trim()) {
-      setCodeError('Please enter the authorization code');
-      return;
-    }
-
-    try {
-      const res = await discoverWabas.mutateAsync(authCode.trim());
-      const wabas = res.data?.wabas || [];
-      const token = res.data?.selectionToken || null;
-      setSelectionToken(token);
-
-      if (wabas.length === 0) {
-        setCodeError('No WhatsApp Business Accounts found for this Meta login.');
-        return;
-      }
-
-      // Exactly one connectable account: connect it right away instead of
-      // making the user pick from a list of one.
-      const connectable = wabas.filter((w) => !w.connectedToAnotherWorkspace);
-      if (connectable.length === 1 && token) {
-        await selectWaba.mutateAsync({ selectionToken: token, wabaId: connectable[0].wabaId });
-        setCodeSuccess(`Connected "${connectable[0].wabaName || connectable[0].wabaId}" successfully!`);
-        setAuthCode('');
-        refetch();
-        return;
-      }
-
-      setDiscoveredWabas(wabas);
-    } catch (err: any) {
-      setCodeError(err.message || 'Failed to discover WhatsApp Business Accounts');
-    }
-  };
-
-  const handleSelectWaba = async (wabaId: string, wabaName?: string) => {
-    if (!selectionToken) return;
-    try {
-      await selectWaba.mutateAsync({ selectionToken, wabaId });
-      setCodeSuccess(`Connected "${wabaName || wabaId}" successfully!`);
-      setDiscoveredWabas(null);
-      setAuthCode('');
-      refetch();
-    } catch (err: any) {
-      setCodeError(err.message || 'Failed to connect this WhatsApp Business Account');
     }
   };
 
@@ -282,12 +214,6 @@ function WhatsAppContent() {
     }
   };
 
-  const getMetaAuthUrl = () => {
-    const clientId = process.env.NEXT_PUBLIC_META_APP_ID || '1198923135565390';
-    const redirectUri = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/waba/callback`;
-    return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=whatsapp_business_messaging,whatsapp_business_management`;
-  };
-
   return (
     <div className="p-section min-h-screen bg-canvas">
       <div className="max-w-content mx-auto">
@@ -298,18 +224,11 @@ function WhatsAppContent() {
           </div>
           <div className="flex items-center space-x-sm">
             <button
-              onClick={() => setShowConnect(true)}
+              onClick={() => setShowAddNumber(true)}
               className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:bg-primary-active transition"
             >
               <Plus className="w-4 h-4" />
-              <span>Connect Existing WABA</span>
-            </button>
-            <button
-              onClick={() => setShowAddNumber(true)}
-              className="bg-gradient-mint text-canvas-deep font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:opacity-90 transition"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Create New Account</span>
+              <span>Connect WhatsApp</span>
             </button>
           </div>
         </div>
@@ -328,7 +247,7 @@ function WhatsAppContent() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg mb-section">
             {accounts.length === 0 && (
               <div className="lg:col-span-3 text-center py-xl text-muted font-body text-body-md">
-                No WABA accounts connected. Click &ldquo;Connect Existing WABA&rdquo; if you already manage one in Meta Business Manager, or &ldquo;Create New Account&rdquo; to set one up.
+                No WABA accounts connected. Click &ldquo;Connect WhatsApp&rdquo; to connect an account you already manage, or create a new one.
               </div>
             )}
             {accounts.map((account) => (
@@ -497,11 +416,19 @@ function WhatsAppContent() {
           </div>
         </div>
 
-        {/* Connect WABA Modal */}
-        {showConnect && (
+        {/* Connect WhatsApp Modal - Embedded Signup (handles both existing and new accounts) */}
+        {showAddNumber && (
           <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
             <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft">
-              <h2 className="font-display text-display-md text-ink mb-md">Connect an Existing WhatsApp Business Account</h2>
+              <div className="flex items-center justify-between mb-md">
+                <h2 className="font-display text-display-md text-ink">Connect WhatsApp Business</h2>
+                <button
+                  onClick={() => { setShowAddNumber(false); setCodeError(''); setCodeSuccess(''); }}
+                  className="p-xs hover:bg-hairline-soft rounded"
+                >
+                  <X className="w-5 h-5 text-muted" />
+                </button>
+              </div>
 
               {codeSuccess && (
                 <div className="mb-md p-md bg-success/10 border border-success/20 rounded-lg">
@@ -512,152 +439,57 @@ function WhatsAppContent() {
                 </div>
               )}
 
-              {!codeSuccess && discoveredWabas && (
-                <div className="mb-md">
-                  <p className="font-body text-body-sm text-muted mb-sm">
-                    Choose which WhatsApp Business Account to connect:
-                  </p>
-                  <div className="space-y-xs mb-md max-h-64 overflow-y-auto">
-                    {discoveredWabas.map((w) => (
-                      <button
-                        key={w.wabaId}
-                        onClick={() => handleSelectWaba(w.wabaId, w.wabaName)}
-                        disabled={selectWaba.isPending || w.connectedToAnotherWorkspace}
-                        className="w-full text-left px-md py-sm border border-hairline-strong rounded-lg hover:bg-hairline-soft transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="font-body text-body-strong text-ink">{w.wabaName || 'WhatsApp Business'}</p>
-                          <p className="font-body text-caption text-muted">WABA: {w.wabaId}</p>
-                        </div>
-                        {w.alreadyConnected && !w.connectedToAnotherWorkspace && (
-                          <span className="text-caption-uppercase text-muted">Reconnect</span>
-                        )}
-                        {w.connectedToAnotherWorkspace && (
-                          <span className="text-caption-uppercase text-error">In use elsewhere</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                  {codeError && (
-                    <p className="font-body text-body-sm text-error mb-sm">{codeError}</p>
-                  )}
-                  <button
-                    onClick={() => { setDiscoveredWabas(null); setSelectionToken(null); }}
-                    className="font-body text-body-sm text-primary hover:underline"
-                  >
-                    Back
-                  </button>
-                </div>
-              )}
-
-              {!codeSuccess && !discoveredWabas && (
+              {!codeSuccess && (
                 <>
-                  <div className="bg-gradient-sky/20 border border-hairline rounded-lg p-md mb-md">
-                    <p className="font-body text-body-md text-body mb-sm">
-                      Use this if you already manage a WhatsApp Business Account in Meta Business
-                      Manager and want to connect it here &mdash; no new account will be created.
+                  <div className="bg-gradient-mint/20 border border-hairline rounded-lg p-md mb-md">
+                    <p className="font-body text-body-sm text-muted mb-sm">
+                      This opens Meta&apos;s Embedded Signup flow. If you already manage a WhatsApp
+                      Business Account in Meta Business Manager, Meta will let you select it there
+                      &mdash; no duplicate account will be created. You can also create a brand new
+                      account from the same flow.
                     </p>
-                    <p className="font-body text-body-sm text-muted">
-                      Click &ldquo;Connect with Meta&rdquo; below to authorize. After authorization,
-                      you&apos;ll be redirected back with a code &mdash; paste it below to see your accounts.
-                    </p>
+                    <ul className="font-body text-body-sm text-muted list-disc list-inside space-y-xs">
+                      <li>Connect an existing WhatsApp Business Account, or create a new one</li>
+                      <li>Add and verify a phone number</li>
+                      <li>Set up your business profile</li>
+                    </ul>
                   </div>
 
-                  <form onSubmit={handleConnectSubmit} className="mb-md">
-                    <label className="font-body text-caption text-muted mb-xs block">Authorization Code</label>
-                    <input
-                      type="text"
-                      value={authCode}
-                      onChange={(e) => { setAuthCode(e.target.value); setCodeError(''); }}
-                      placeholder="Paste the authorization code here"
-                      className="w-full bg-surface-card border border-hairline-strong rounded-md font-body text-body-md text-ink px-md py-sm h-11 focus:outline-none focus:border-2 focus:border-primary transition mb-sm"
-                    />
-                    {codeError && (
-                      <p className="font-body text-body-sm text-error">{codeError}</p>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={discoverWabas.isPending}
-                      className="w-full bg-primary text-on-primary font-body text-button h-10 rounded-pill hover:bg-primary-active transition disabled:opacity-50"
-                    >
-                      {discoverWabas.isPending ? 'Looking up your accounts...' : 'Find My Accounts'}
-                    </button>
-                  </form>
+                  {codeError && (
+                    <p className="font-body text-body-sm text-error mb-md">{codeError}</p>
+                  )}
 
-                  <div className="border-t border-hairline pt-md">
-                    <p className="font-body text-caption text-muted mb-sm">Step 1: Authorize with Meta</p>
-                    <a
-                      href={getMetaAuthUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full text-center px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
+                  <div className="flex space-x-sm">
+                    <button
+                      onClick={startEmbeddedSignup}
+                      disabled={!embeddedSignupLoaded || connecting}
+                      className="flex-1 bg-gradient-mint text-canvas-deep font-body text-button h-10 rounded-pill hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center space-x-xs"
                     >
-                      Connect with Meta
-                    </a>
+                      <Sparkles className="w-4 h-4" />
+                      <span>
+                        {connecting ? 'Connecting...' : embeddedSignupLoaded ? 'Connect with Meta' : 'Loading...'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setShowAddNumber(false)}
+                      className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </>
               )}
 
-              <div className="flex justify-end space-x-sm mt-md pt-md border-t border-hairline">
-                <button
-                  onClick={() => {
-                    setShowConnect(false);
-                    setCodeError('');
-                    setCodeSuccess('');
-                    setAuthCode('');
-                    setDiscoveredWabas(null);
-                    setSelectionToken(null);
-                  }}
-                  className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
-                >
-                  {codeSuccess ? 'Done' : 'Cancel'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add Number Modal - Embedded Signup */}
-        {showAddNumber && (
-          <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
-            <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft">
-              <div className="flex items-center justify-between mb-md">
-                <h2 className="font-display text-display-md text-ink">Create a New WhatsApp Business Account</h2>
-                <button onClick={() => setShowAddNumber(false)} className="p-xs hover:bg-hairline-soft rounded">
-                  <X className="w-5 h-5 text-muted" />
-                </button>
-              </div>
-
-              <div className="bg-gradient-mint/20 border border-hairline rounded-lg p-md mb-md">
-                <p className="font-body text-body-sm text-muted mb-sm">
-                  This opens Meta&apos;s Embedded Signup flow, which always creates a brand new
-                  WhatsApp Business Account and phone number. Already manage a WhatsApp Business
-                  Account in Meta Business Manager? Use &ldquo;Connect Existing WABA&rdquo; instead
-                  &mdash; this option cannot attach to one you already have.
-                </p>
-                <ul className="font-body text-body-sm text-muted list-disc list-inside space-y-xs">
-                  <li>Create a new WhatsApp Business Account</li>
-                  <li>Add and verify a phone number</li>
-                  <li>Set up your business profile</li>
-                </ul>
-              </div>
-
-              <div className="flex space-x-sm">
-                <button
-                  onClick={startEmbeddedSignup}
-                  disabled={!embeddedSignupLoaded}
-                  className="flex-1 bg-gradient-mint text-canvas-deep font-body text-button h-10 rounded-pill hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center space-x-xs"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>{embeddedSignupLoaded ? 'Start Embedded Signup' : 'Loading...'}</span>
-                </button>
-                <button
-                  onClick={() => setShowAddNumber(false)}
-                  className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
-                >
-                  Cancel
-                </button>
-              </div>
+              {codeSuccess && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => { setShowAddNumber(false); setCodeSuccess(''); setCodeError(''); }}
+                    className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

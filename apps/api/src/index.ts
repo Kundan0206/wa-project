@@ -51,7 +51,6 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/v1', routes);
-app.use('/webhook/whatsapp', routes);
 
 app.use(errorHandler);
 
