@@ -52,21 +52,23 @@ router.post('/embedded-callback', authenticate, asyncHandler(async (req: AuthReq
   let token = accessToken;
   
   if (code && !token) {
-    const exchangeResponse = await fetch(`${META_API_URL}/oauth/access_token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: process.env.META_APP_ID || '',
-        client_secret: process.env.META_APP_SECRET || '',
-        redirect_uri: `${process.env.FRONTEND_URL}/dashboard/whatsapp`,
-        code
-      })
+    // Embedded Signup codes come from FB.login's JS SDK callback, not a
+    // browser redirect - Meta does not expect (and will reject with a 400)
+    // a redirect_uri on this exchange, unlike the classic OAuth dialog flow.
+    const exchangeParams = new URLSearchParams({
+      client_id: process.env.META_APP_ID || '',
+      client_secret: process.env.META_APP_SECRET || '',
+      code
+    });
+    const exchangeResponse = await fetch(`${META_API_URL}/oauth/access_token?${exchangeParams}`, {
+      method: 'GET'
     });
     const exchangeData = await exchangeResponse.json() as any;
     token = exchangeData.access_token;
-    
+
     if (!token) {
-      res.status(400).json({ error: 'Failed to exchange code for token', details: exchangeData });
+      console.error('Embedded Signup token exchange failed:', exchangeData);
+      res.status(400).json({ error: 'Failed to exchange code for token', details: exchangeData.error?.message || exchangeData });
       return;
     }
   }
