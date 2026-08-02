@@ -73,7 +73,7 @@ const config: Config = {
         'lg': '24px',
         'xl': '32px',
         'xxl': '48px',
-        'section': '96px'
+        'section': '32px'
       },
       borderRadius: {
         xs: '4px',
@@ -89,7 +89,7 @@ const config: Config = {
         'soft': '0 4px 16px rgba(0, 0, 0, 0.04)'
       },
       maxWidth: {
-        content: '1200px'
+        content: '1600px'
       }
     }
   },
