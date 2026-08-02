@@ -282,6 +282,30 @@ export function useDeleteTemplate() {
   });
 }
 
+export function useSyncTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<ApiResponse<Template>>(`/api/v1/templates/${id}/sync`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['templates'] }),
+  });
+}
+
+export interface TemplateAnalytics {
+  sent: number;
+  delivered: number;
+  read: number;
+  deliveryRate: string;
+  readRate: string;
+}
+
+export function useTemplateAnalytics(id: string | null) {
+  return useQuery({
+    queryKey: ['templates', id, 'analytics'],
+    queryFn: () => api.get<ApiResponse<TemplateAnalytics>>(`/api/v1/templates/${id}/analytics`),
+    enabled: !!id,
+  });
+}
+
 // Campaigns
 export function useCampaigns(params?: { status?: string; page?: string; limit?: string }) {
   return useQuery({

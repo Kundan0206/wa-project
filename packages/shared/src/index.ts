@@ -225,7 +225,7 @@ export interface Template {
   status: TemplateStatus;
   components: TemplateComponent[];
   rejectionReason?: string;
-  qualityScore?: number;
+  qualityScore?: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN' | string;
   createdAt: Date;
   updatedAt: Date;
 }

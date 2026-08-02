@@ -1,15 +1,29 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, Search, Eye, Trash2, X, Smartphone } from 'lucide-react';
-import { useTemplates, useDeleteTemplate, useCreateTemplate } from '../../../lib/hooks';
+import {
+  Plus, Search, Eye, Trash2, X, Smartphone, RefreshCw, Copy, Check,
+  AlertCircle, BarChart3, Clock, CheckCircle2, XCircle
+} from 'lucide-react';
+import {
+  useTemplates, useDeleteTemplate, useCreateTemplate, useSyncTemplate, useTemplateAnalytics
+} from '../../../lib/hooks';
 import type { Template } from '@wa/shared';
 
 const statusColors: Record<string, string> = {
   approved: 'bg-success/10 text-success',
   pending: 'bg-gradient-peach/20 text-body-strong',
   rejected: 'bg-error/10 text-error',
-  paused: 'bg-hairline-soft text-muted'
+  paused: 'bg-hairline-soft text-muted',
+  disabled: 'bg-hairline-soft text-muted'
+};
+
+const statusIcons: Record<string, any> = {
+  approved: CheckCircle2,
+  pending: Clock,
+  rejected: XCircle,
+  paused: AlertCircle,
+  disabled: AlertCircle
 };
 
 const categoryColors: Record<string, string> = {
@@ -17,6 +31,49 @@ const categoryColors: Record<string, string> = {
   utility: 'bg-primary/10 text-primary',
   authentication: 'bg-gradient-peach/20 text-body-strong'
 };
+
+const qualityStyles: Record<string, { color: string; label: string }> = {
+  GREEN: { color: 'bg-success/10 text-success', label: 'High quality' },
+  YELLOW: { color: 'bg-gradient-peach/20 text-body-strong', label: 'Medium quality' },
+  RED: { color: 'bg-error/10 text-error', label: 'Low quality' },
+  UNKNOWN: { color: 'bg-hairline-soft text-muted', label: 'Quality unrated' }
+};
+
+// Renders a template's components into the plain-text lines a WhatsApp
+// message would actually show, for both the card preview and detail modal -
+// avoids showing raw component-type chips with no sense of the real content.
+function renderTemplateText(components: any[] = []): { header?: string; body?: string; footer?: string; buttons: any[] } {
+  const header = components.find((c) => c.type === 'HEADER');
+  const body = components.find((c) => c.type === 'BODY');
+  const footer = components.find((c) => c.type === 'FOOTER');
+  const buttonsComp = components.find((c) => c.type === 'BUTTONS');
+
+  return {
+    header: header?.text,
+    body: body?.text || (body?.add_security_recommendation ? 'Your verification code is {{1}}. For your security, do not share this code.' : undefined),
+    footer: footer?.text || (footer?.code_expiration_minutes ? `This code expires in ${footer.code_expiration_minutes} minutes.` : undefined),
+    buttons: buttonsComp?.buttons || []
+  };
+}
+
+function CopyableName({ name }: { name: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(name);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title="Copy template name"
+      className="p-xxs hover:bg-hairline-soft rounded transition"
+    >
+      {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3 text-muted-soft" />}
+    </button>
+  );
+}
 
 type Category = 'marketing' | 'utility' | 'authentication';
 type ButtonType = 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER' | 'COPY_CODE';
@@ -77,6 +134,9 @@ export default function TemplatesPage() {
   );
   const deleteTemplate = useDeleteTemplate();
   const createTemplate = useCreateTemplate();
+  const syncTemplate = useSyncTemplate();
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [analyticsTemplate, setAnalyticsTemplate] = useState<Template | null>(null);
 
   const templates = templatesRes?.data || [];
 
@@ -272,66 +332,121 @@ export default function TemplatesPage() {
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-lg text-muted font-body text-body-md">No templates found</div>
+            <div className="text-center py-lg text-muted font-body text-body-md">
+              {searchTerm || statusFilter !== 'all' ? 'No templates match your filters' : 'No templates yet — create one to start sending outbound messages'}
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md p-md">
-              {filtered.map((template) => (
-                <div key={template.id} className="border border-hairline rounded-xl p-md hover:shadow-soft transition">
-                  <div className="flex items-start justify-between mb-sm">
-                    <div>
-                      <h3 className="font-body text-title-sm text-ink">{template.name}</h3>
-                      <div className="flex items-center space-x-sm mt-xs">
-                        <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${categoryColors[template.category] || categoryColors.utility}`}>
-                          {template.category}
-                        </span>
-                        <span className="font-body text-caption text-muted-soft">{template.language}</span>
+              {filtered.map((template) => {
+                const rendered = renderTemplateText(template.components as any[]);
+                const StatusIcon = statusIcons[template.status] || Clock;
+                const quality = qualityStyles[template.qualityScore || ''] || null;
+
+                return (
+                  <div key={template.id} className="border border-hairline rounded-xl p-md hover:shadow-soft transition flex flex-col">
+                    <div className="flex items-start justify-between mb-sm gap-xs">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-xxs">
+                          <h3 className="font-body text-title-sm text-ink truncate">{template.name}</h3>
+                          <CopyableName name={template.name} />
+                        </div>
+                        <div className="flex items-center flex-wrap gap-xs mt-xs">
+                          <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${categoryColors[template.category] || categoryColors.utility}`}>
+                            {template.category}
+                          </span>
+                          <span className="font-body text-caption text-muted-soft">{template.language}</span>
+                          {quality && (
+                            <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${quality.color}`} title={quality.label}>
+                              {template.qualityScore}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`flex-shrink-0 inline-flex items-center gap-xxs text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[template.status] || statusColors.pending}`}>
+                        <StatusIcon className="w-3 h-3" /> {template.status}
+                      </span>
+                    </div>
+
+                    <div className="bg-[#e5ddd5] rounded-lg p-sm mb-sm flex-1">
+                      <div className="bg-white rounded-md shadow-sm p-sm">
+                        {rendered.header && (
+                          <p className="font-body text-body-strong text-ink text-body-sm mb-xxs line-clamp-1">{rendered.header}</p>
+                        )}
+                        <p className="font-body text-body-sm text-ink whitespace-pre-wrap line-clamp-3">
+                          {rendered.body || <span className="text-muted-soft italic">No body content</span>}
+                        </p>
+                        {rendered.footer && (
+                          <p className="font-body text-caption text-muted-soft mt-xxs line-clamp-1">{rendered.footer}</p>
+                        )}
+                        {rendered.buttons.length > 0 && (
+                          <div className="border-t border-hairline-soft mt-xs pt-xxs space-y-xxs">
+                            {rendered.buttons.slice(0, 2).map((btn: any, i: number) => (
+                              <div key={i} className="font-body text-caption text-primary text-center py-xxs truncate">
+                                {btn.text}
+                              </div>
+                            ))}
+                            {rendered.buttons.length > 2 && (
+                              <div className="font-body text-caption text-muted text-center">+{rendered.buttons.length - 2} more</div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[template.status] || statusColors.pending}`}>
-                      {template.status}
-                    </span>
-                  </div>
 
-                  <div className="mb-sm">
-                    <div className="font-body text-caption text-muted mb-xs">Components</div>
-                    <div className="flex flex-wrap gap-xs">
-                      {(template.components || []).map((comp: any, i: number) => (
-                        <span key={i} className="font-body text-caption bg-hairline-soft text-body px-sm py-xxs rounded">{comp.type}</span>
-                      ))}
+                    {template.status === 'rejected' && template.rejectionReason && (
+                      <div className="flex items-start gap-xs font-body text-caption text-error bg-error/10 p-sm rounded mb-sm">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-xxs" />
+                        <span>{template.rejectionReason}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-xs border-t border-hairline">
+                      <div className="flex space-x-xxs">
+                        <button
+                          onClick={() => setViewTemplate(template)}
+                          title="View full details"
+                          className="p-xs hover:bg-hairline-soft rounded-md transition"
+                        >
+                          <Eye className="w-4 h-4 text-muted" />
+                        </button>
+                        <button
+                          onClick={() => setAnalyticsTemplate(template)}
+                          title="View delivery analytics"
+                          className="p-xs hover:bg-hairline-soft rounded-md transition"
+                        >
+                          <BarChart3 className="w-4 h-4 text-muted" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setSyncingId(template.id);
+                            try {
+                              await syncTemplate.mutateAsync(template.id);
+                            } finally {
+                              setSyncingId(null);
+                            }
+                          }}
+                          disabled={syncingId === template.id}
+                          title="Re-check status from Meta"
+                          className="p-xs hover:bg-hairline-soft rounded-md transition disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-4 h-4 text-muted ${syncingId === template.id ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete template "${template.name}"? This removes it from Meta permanently.`)) {
+                              deleteTemplate.mutate(template.id);
+                            }
+                          }}
+                          title="Delete template"
+                          className="p-xs hover:bg-red-50 rounded-md transition"
+                        >
+                          <Trash2 className="w-4 h-4 text-muted hover:text-error" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  {template.status === 'rejected' && template.rejectionReason && (
-                    <div className="font-body text-caption text-error bg-error/10 p-sm rounded mb-sm">
-                      {template.rejectionReason}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <span className="font-body text-caption text-muted">{template.qualityScore ? `${template.qualityScore}/10` : 'N/A'}</span>
-                    <div className="flex space-x-xs">
-                      <button
-                        onClick={() => setViewTemplate(template)}
-                        title="View components"
-                        className="p-xs hover:bg-hairline-soft rounded-md transition"
-                      >
-                        <Eye className="w-4 h-4 text-muted" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete template "${template.name}"? This removes it from Meta permanently.`)) {
-                            deleteTemplate.mutate(template.id);
-                          }
-                        }}
-                        title="Delete template"
-                        className="p-xs hover:bg-red-50 rounded-md transition"
-                      >
-                        <Trash2 className="w-4 h-4 text-muted hover:text-error" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -618,28 +733,75 @@ export default function TemplatesPage() {
       )}
 
       {viewTemplate && (
-        <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50 p-md">
           <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-md">
-              <h2 className="font-display text-display-sm text-ink">{viewTemplate.name}</h2>
-              <button onClick={() => setViewTemplate(null)} className="p-xs hover:bg-hairline-soft rounded">
+              <div className="flex items-center gap-xxs min-w-0">
+                <h2 className="font-display text-display-sm text-ink truncate">{viewTemplate.name}</h2>
+                <CopyableName name={viewTemplate.name} />
+              </div>
+              <button onClick={() => setViewTemplate(null)} className="p-xs hover:bg-hairline-soft rounded flex-shrink-0">
                 <X className="w-5 h-5 text-muted" />
               </button>
             </div>
-            <div className="flex items-center space-x-sm mb-md">
+            <div className="flex items-center flex-wrap gap-sm mb-md">
               <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${categoryColors[viewTemplate.category] || categoryColors.utility}`}>
                 {viewTemplate.category}
               </span>
               <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[viewTemplate.status] || statusColors.pending}`}>
                 {viewTemplate.status}
               </span>
+              {viewTemplate.qualityScore && qualityStyles[viewTemplate.qualityScore] && (
+                <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${qualityStyles[viewTemplate.qualityScore].color}`}>
+                  {qualityStyles[viewTemplate.qualityScore].label}
+                </span>
+              )}
               <span className="font-body text-caption text-muted">{viewTemplate.language}</span>
             </div>
+
+            {viewTemplate.status === 'rejected' && viewTemplate.rejectionReason && (
+              <div className="flex items-start gap-xs font-body text-body-sm text-error bg-error/10 p-md rounded-lg mb-md">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-xxs" />
+                <div>
+                  <p className="text-body-strong mb-xxs">Rejected by Meta</p>
+                  <p>{viewTemplate.rejectionReason}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-[#e5ddd5] rounded-lg p-md mb-md">
+              <div className="bg-white rounded-md shadow-sm p-md">
+                {(() => {
+                  const rendered = renderTemplateText(viewTemplate.components as any[]);
+                  return (
+                    <>
+                      {rendered.header && <p className="font-body text-body-strong text-ink mb-xs">{rendered.header}</p>}
+                      <p className="font-body text-body-sm text-ink whitespace-pre-wrap mb-xs">{rendered.body}</p>
+                      {rendered.footer && <p className="font-body text-caption text-muted-soft">{rendered.footer}</p>}
+                      {rendered.buttons.length > 0 && (
+                        <div className="border-t border-hairline-soft mt-sm pt-xs space-y-xxs">
+                          {rendered.buttons.map((btn: any, i: number) => (
+                            <div key={i} className="font-body text-body-sm text-primary text-center py-xs">
+                              {btn.type === 'URL' && '🔗 '}
+                              {btn.type === 'PHONE_NUMBER' && '📞 '}
+                              {(btn.type === 'COPY_CODE' || btn.type === 'OTP') && '📋 '}
+                              {btn.text}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
             <div className="space-y-sm">
+              <div className="font-body text-caption-uppercase text-muted">Raw components</div>
               {(viewTemplate.components || []).map((comp: any, i: number) => (
                 <div key={i} className="border border-hairline rounded-lg p-md">
                   <div className="font-body text-caption-uppercase text-muted mb-xs">{comp.type}</div>
-                  {comp.text && <p className="font-body text-body-md text-ink whitespace-pre-wrap">{comp.text}</p>}
+                  {comp.text && <p className="font-body text-body-sm text-ink whitespace-pre-wrap">{comp.text}</p>}
                   {comp.type === 'BODY' && comp.add_security_recommendation && (
                     <p className="font-body text-body-sm text-muted mt-xs">Includes security recommendation</p>
                   )}
@@ -658,14 +820,76 @@ export default function TemplatesPage() {
                 </div>
               ))}
             </div>
-            {viewTemplate.status === 'rejected' && viewTemplate.rejectionReason && (
-              <div className="font-body text-caption text-error bg-error/10 p-sm rounded mt-md">
-                Rejection reason: {viewTemplate.rejectionReason}
-              </div>
-            )}
+
+            <div className="flex justify-end gap-xs mt-lg pt-md border-t border-hairline">
+              <button
+                onClick={async () => {
+                  setSyncingId(viewTemplate.id);
+                  try {
+                    const res = await syncTemplate.mutateAsync(viewTemplate.id);
+                    if (res.data) setViewTemplate(res.data);
+                  } finally {
+                    setSyncingId(null);
+                  }
+                }}
+                disabled={syncingId === viewTemplate.id}
+                className="flex items-center gap-xs px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncingId === viewTemplate.id ? 'animate-spin' : ''}`} />
+                {syncingId === viewTemplate.id ? 'Syncing...' : 'Re-check status from Meta'}
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {analyticsTemplate && (
+        <TemplateAnalyticsModal template={analyticsTemplate} onClose={() => setAnalyticsTemplate(null)} />
+      )}
+    </div>
+  );
+}
+
+function TemplateAnalyticsModal({ template, onClose }: { template: Template; onClose: () => void }) {
+  const { data, isLoading } = useTemplateAnalytics(template.id);
+  const analytics = data?.data;
+
+  return (
+    <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50 p-md">
+      <div className="bg-surface-card rounded-xl p-xl w-full max-w-md border border-hairline shadow-soft">
+        <div className="flex items-center justify-between mb-md">
+          <h2 className="font-display text-display-sm text-ink">{template.name} &mdash; Analytics</h2>
+          <button onClick={onClose} className="p-xs hover:bg-hairline-soft rounded">
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+        {isLoading ? (
+          <div className="space-y-sm">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-12 bg-hairline-soft rounded animate-pulse" />
+            ))}
+          </div>
+        ) : !analytics ? (
+          <p className="font-body text-body-md text-muted text-center py-lg">No analytics available yet</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-sm">
+            <div className="border border-hairline rounded-lg p-md">
+              <p className="font-body text-caption-uppercase text-muted mb-xxs">Sent</p>
+              <p className="font-display text-display-sm text-ink">{analytics.sent}</p>
+            </div>
+            <div className="border border-hairline rounded-lg p-md">
+              <p className="font-body text-caption-uppercase text-muted mb-xxs">Delivered</p>
+              <p className="font-display text-display-sm text-ink">{analytics.delivered}</p>
+              <p className="font-body text-caption text-muted-soft">{analytics.deliveryRate}%</p>
+            </div>
+            <div className="border border-hairline rounded-lg p-md">
+              <p className="font-body text-caption-uppercase text-muted mb-xxs">Read</p>
+              <p className="font-display text-display-sm text-ink">{analytics.read}</p>
+              <p className="font-body text-caption text-muted-soft">{analytics.readRate}%</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

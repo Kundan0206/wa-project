@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest, requireRole, asyncHandler } from '../middleware/auth.js';
-import { createTemplate, deleteTemplate } from '../services/whatsapp.service.js';
+import { createTemplate, deleteTemplate, syncTemplateFromMeta } from '../services/whatsapp.service.js';
 
 // Never select access_token in responses that go back to the browser.
 const WABA_SAFE_COLUMNS = 'id, tenant_id, waba_id, waba_name, status, currency, timezone, created_at, updated_at';
@@ -169,6 +169,54 @@ router.delete('/:id', authenticate, requireRole('owner', 'admin'), asyncHandler(
   }
 
   res.json({ success: true, message: 'Template deleted' });
+}));
+
+router.post('/:id/sync', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const { id } = req.params;
+
+  const { data: template } = await supabase
+    .from('templates')
+    .select('template_id_meta, waba_accounts(access_token)')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (!template || !template.template_id_meta) {
+    res.status(404).json({ error: 'Template not found' });
+    return;
+  }
+
+  const accessToken = (template.waba_accounts as any)?.access_token;
+  if (!accessToken) {
+    res.status(400).json({ error: 'No connected WhatsApp account for this template' });
+    return;
+  }
+
+  try {
+    const synced = await syncTemplateFromMeta(accessToken, template.template_id_meta);
+
+    const { data: updated, error } = await supabase
+      .from('templates')
+      .update({
+        status: synced.status,
+        quality_score: synced.qualityScore || null,
+        rejection_reason: synced.rejectionReason || null
+      })
+      .eq('id', id)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Failed to sync template from Meta' });
+  }
 }));
 
 router.get('/:id/analytics', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {

@@ -328,16 +328,27 @@ export async function deleteTemplate(accessToken: string, templateId: string) {
   return readJson(response);
 }
 
-export async function getTemplateAnalytics(accessToken: string, templateId: string) {
-  const response = await fetch(`${META_API_URL}/${templateId}?fields=quality_score,status`, {
-    headers: { 'Authorization': `Bearer ${accessToken}` }
-  });
+export async function syncTemplateFromMeta(accessToken: string, templateId: string) {
+  const response = await fetch(
+    `${META_API_URL}/${templateId}?fields=status,quality_score,rejected_reason`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  );
 
-  const data = await readJson<{ quality_score?: number; status?: string }>(response);
+  const data = await readJson<{
+    status?: string;
+    quality_score?: { score?: string };
+    rejected_reason?: string;
+    error?: MetaError;
+  }>(response);
+
+  if (data.error) {
+    throw new Error(formatMetaError(data.error));
+  }
 
   return {
-    qualityScore: data.quality_score || 0,
-    status: data.status
+    status: data.status?.toLowerCase(),
+    qualityScore: data.quality_score?.score,
+    rejectionReason: data.rejected_reason
   };
 }
 
