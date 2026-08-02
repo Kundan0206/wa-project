@@ -4,10 +4,10 @@ import { Providers } from './providers';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://wa.builddreams.co.in'),
-  title: 'BuildDreams WhatsApp Automation Platform',
+  title: 'Wirely - Connect once. Reach everywhere.',
   description: 'A compliant SaaS platform for businesses to manage their own WhatsApp communication, workflows, notifications, and support using their own approved WhatsApp Business account.',
   openGraph: {
-    title: 'BuildDreams WhatsApp Automation Platform',
+    title: 'Wirely - Connect once. Reach everywhere.',
     description: 'Compliant SaaS platform for WhatsApp automation using official APIs',
     url: 'https://wa.builddreams.co.in',
     type: 'website'

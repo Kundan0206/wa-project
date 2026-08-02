@@ -8,9 +8,9 @@ export default function HomePage() {
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-hairline bg-surface-card/92 backdrop-blur">
         <div className="mx-auto flex min-h-[76px] max-w-content items-center justify-between gap-5 px-lg lg:px-xl">
-          <Link href="/" className="flex items-center gap-sm" aria-label="BuildDreams home">
+          <Link href="/" className="flex items-center gap-sm" aria-label="Wirely home">
             <Image src="/images/builddreams.png" alt="BuildDreams logo" width={40} height={40} className="h-10 w-auto" />
-            <span className="font-body text-caption-uppercase text-muted-soft hidden sm:inline">/ WHATSAPP AUTOMATION</span>
+            <span className="font-body text-caption-uppercase text-muted-soft hidden sm:inline">/ WIRELY</span>
           </Link>
           <nav className="hidden items-center gap-7 font-body text-body-sm text-body lg:flex">
             <Link href="#features" className="hover:text-ink">Features</Link>
@@ -39,8 +39,11 @@ export default function HomePage() {
                 <span className="font-body text-caption-uppercase">SAAS FOR OWNED WHATSAPP WORKFLOWS</span>
               </div>
               <h1 className="font-display text-display-mega text-on-dark mt-6 max-w-4xl leading-[1.02]">
-                WhatsApp Automation Platform for Businesses
+                Wirely
               </h1>
+              <p className="font-display text-display-sm text-gradient-mint mt-xs max-w-2xl">
+                Connect once. Reach everywhere.
+              </p>
               <p className="font-body text-body-md text-on-dark-soft mt-lg max-w-2xl leading-[1.75]">
                 Automate customer communication, notifications, and support workflows using your own WhatsApp Business account.
               </p>
@@ -203,7 +206,7 @@ export default function HomePage() {
                           <MessageCircle className="h-5 w-5 text-canvas-deep" />
                         </div>
                         <div>
-                          <div className="font-body text-title-sm text-on-dark">BuildDreams WA</div>
+                          <div className="font-body text-title-sm text-on-dark">Wirely</div>
                           <div className="font-body text-caption-uppercase text-on-dark-soft">OWN WABA WORKSPACE</div>
                         </div>
                       </div>
@@ -398,7 +401,7 @@ export default function HomePage() {
               </div>
               <div className="grid gap-md lg:col-span-8 md:grid-cols-2">
                 {[
-                  { num: '01', title: 'Business signs up', desc: 'The business creates its BuildDreams workspace and defines its communication use cases.' },
+                  { num: '01', title: 'Business signs up', desc: 'The business creates its Wirely workspace and defines its communication use cases.' },
                   { num: '02', title: 'Connects their own WhatsApp Business account', desc: 'Customers use their own approved WhatsApp Business account. BuildDreams is not a WhatsApp Business Solution Provider (BSP).' },
                   { num: '03', title: 'Creates message workflows', desc: 'Teams configure templates, triggers, assignment rules, and CRM actions for approved use cases.' },
                   { num: '04', title: 'Sends messages only to opted-in users', desc: 'All communication requires user consent, opt-out handling, and customer-owned compliance controls.' },
@@ -425,12 +428,12 @@ export default function HomePage() {
                 How businesses get WhatsApp API access through the platform.
               </h2>
               <p className="font-body text-body-md text-body mt-md leading-[1.75]">
-                BuildDreams provides the software layer for onboarding, workflows, inbox, and CRM integration. WhatsApp API access remains tied to the customer&apos;s own Meta Business and approved WhatsApp Business account.
+                Wirely provides the software layer for onboarding, workflows, inbox, and CRM integration. WhatsApp API access remains tied to the customer&apos;s own Meta Business and approved WhatsApp Business account.
               </p>
             </div>
             <div className="mt-xl grid gap-md md:grid-cols-2 lg:grid-cols-4">
               {[
-                { num: '01', title: 'Business signs up', desc: 'The business creates a BuildDreams workspace and shares its communication use case.' },
+                { num: '01', title: 'Business signs up', desc: 'The business creates a Wirely workspace and shares its communication use case.' },
                 { num: '02', title: 'Connects Meta Business', desc: 'The business connects its own Meta Business and WhatsApp Business account.' },
                 { num: '03', title: 'Gets API access', desc: 'API access is configured through official infrastructure and approved providers where applicable.' },
                 { num: '04', title: 'Starts messaging', desc: 'Messages are sent only to opted-in users using approved templates and service-window rules.' },
@@ -493,7 +496,7 @@ export default function HomePage() {
                     <div className="flex justify-between font-body text-caption text-muted"><span>Replies</span><span>42%</span></div>
                     <div className="mt-xs h-2 rounded-full bg-hairline"><div className="h-2 w-[42%] rounded-full bg-primary"></div></div>
                   </div>
-                  <div className="rounded-2xl bg-canvas-soft p-sm font-body text-caption text-muted">Interface preview based on the BuildDreams workflow dashboard.</div>
+                  <div className="rounded-2xl bg-canvas-soft p-sm font-body text-caption text-muted">Interface preview based on the Wirely workflow dashboard.</div>
                 </div>
               </div>
             </div>
@@ -633,7 +636,7 @@ export default function HomePage() {
                   Start building your WhatsApp workflows
                 </h2>
                 <p className="font-body text-body-md text-on-dark-soft mt-md max-w-xl leading-[1.75]">
-                  See how BuildDreams can turn opted-in customer communication into structured support, notification, and CRM workflows.
+                  See how Wirely can turn opted-in customer communication into structured support, notification, and CRM workflows.
                 </p>
               </div>
               <div className="flex justify-start">
