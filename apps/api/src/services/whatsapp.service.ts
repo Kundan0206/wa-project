@@ -11,6 +11,33 @@ async function readJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+interface MetaError {
+  message?: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+  error_user_title?: string;
+  error_user_msg?: string;
+  error_data?: { details?: string };
+  fbtrace_id?: string;
+}
+
+// Meta's top-level error.message is often a generic label ("Invalid
+// parameter"); the actionable detail is in error_user_msg / error_user_title
+// / error_data.details, which most of this codebase used to discard.
+function formatMetaError(error: MetaError): string {
+  const parts = [
+    error.error_user_title,
+    error.error_user_msg,
+    error.error_data?.details,
+    !error.error_user_msg && !error.error_data?.details ? error.message : undefined
+  ].filter(Boolean);
+
+  const detail = parts.length > 0 ? parts.join(' — ') : (error.message || 'Unknown error from Meta');
+  const code = error.code ? ` (code ${error.code}${error.error_subcode ? `.${error.error_subcode}` : ''})` : '';
+  return `${detail}${code}`;
+}
+
 export async function sendWhatsAppMessage(
   accessToken: string,
   phoneNumberId: string,
@@ -38,10 +65,10 @@ export async function sendWhatsAppMessage(
     body: JSON.stringify(payload)
   });
 
-  const data = await readJson<{ error?: { message?: string } }>(response);
+  const data = await readJson<{ error?: MetaError }>(response);
 
   if (data.error) {
-    throw new Error(data.error.message);
+    throw new Error(formatMetaError(data.error));
   }
 
   return data;
@@ -90,10 +117,10 @@ export async function exchangeCodeForToken(code: string) {
     method: 'GET'
   });
 
-  const data = await readJson<{ error?: { message?: string }; access_token: string }>(response);
+  const data = await readJson<{ error?: MetaError; access_token: string }>(response);
 
   if (data.error) {
-    throw new Error(data.error.message);
+    throw new Error(formatMetaError(data.error));
   }
 
   return { accessToken: data.access_token };
@@ -116,11 +143,11 @@ export async function listAccessibleWabas(accessToken: string): Promise<Discover
   });
   const debugData = await readJson<{
     data?: { is_valid?: boolean; granular_scopes?: Array<{ scope: string; target_ids?: string[] }> };
-    error?: { message?: string };
+    error?: MetaError;
   }>(debugResponse);
 
   if (debugData.error || !debugData.data?.is_valid) {
-    throw new Error(debugData.error?.message || 'Invalid access token');
+    throw new Error(debugData.error ? formatMetaError(debugData.error) : 'Invalid access token');
   }
 
   const wabaIds = debugData.data.granular_scopes?.find(
@@ -283,10 +310,10 @@ export async function createTemplate(
     body: JSON.stringify(template)
   });
 
-  const data = await readJson<{ error?: { message?: string } }>(response);
+  const data = await readJson<{ error?: MetaError }>(response);
 
   if (data.error) {
-    throw new Error(data.error.message);
+    throw new Error(formatMetaError(data.error));
   }
 
   return data;
