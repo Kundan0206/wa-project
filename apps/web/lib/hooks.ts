@@ -187,6 +187,19 @@ export function useSubscribeWabaWebhooks() {
   });
 }
 
+export interface WabaConnectionCheck {
+  check: string;
+  ok: boolean;
+  detail: string;
+}
+
+export function useTestWabaConnection() {
+  return useMutation({
+    mutationFn: (wabaId: string) =>
+      api.post<ApiResponse<{ healthy: boolean; checks: WabaConnectionCheck[] }>>(`/api/v1/waba/${wabaId}/test-connection`),
+  });
+}
+
 export function useSetDefaultPhoneNumber() {
   const qc = useQueryClient();
   return useMutation({

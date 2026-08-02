@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest, requireRole, asyncHandler } from '../middleware/auth.js';
-import { listAccessibleWabas, getPhoneNumberDetails, subscribeAppToWaba } from '../services/whatsapp.service.js';
+import { listAccessibleWabas, getPhoneNumberDetails, subscribeAppToWaba, formatMetaError } from '../services/whatsapp.service.js';
 
 const META_API_URL = process.env.META_API_URL || 'https://graph.facebook.com/v19.0';
 
@@ -172,6 +172,87 @@ router.post('/:id/subscribe', authenticate, requireRole('owner', 'admin'), async
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to subscribe to webhooks' });
   }
+}));
+
+// Cheap, no-op health check that calls Meta with the WABA's stored access
+// token so a dead/under-permissioned token (the cause of "code 200: You do
+// not have the necessary permission..." errors) surfaces immediately from
+// the dashboard, instead of only being discovered when a real send fails.
+router.post('/:id/test-connection', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const { id } = req.params;
+
+  const { data: waba, error } = await supabase
+    .from('waba_accounts')
+    .select('waba_id, waba_name, access_token, phone_numbers(phone_number_id, display_number)')
+    .eq('id', id)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (error || !waba) {
+    res.status(404).json({ error: 'WABA account not found' });
+    return;
+  }
+
+  const checks: Array<{ check: string; ok: boolean; detail: string }> = [];
+
+  try {
+    const wabaResponse = await fetch(
+      `${META_API_URL}/${waba.waba_id}?fields=id,name`,
+      { headers: { 'Authorization': `Bearer ${waba.access_token}` } }
+    );
+    const wabaData = await wabaResponse.json() as any;
+
+    if (wabaData.error) {
+      checks.push({ check: 'Account access', ok: false, detail: formatMetaError(wabaData.error) });
+    } else {
+      checks.push({ check: 'Account access', ok: true, detail: 'Token can read this WhatsApp Business Account' });
+    }
+  } catch (err: any) {
+    checks.push({ check: 'Account access', ok: false, detail: err.message || 'Request to Meta failed' });
+  }
+
+  const phoneNumbers = (waba.phone_numbers as any[]) || [];
+  if (phoneNumbers.length === 0) {
+    checks.push({ check: 'Messaging permission', ok: false, detail: 'No phone numbers connected to test' });
+  } else {
+    for (const phone of phoneNumbers) {
+      try {
+        const phoneResponse = await fetch(
+          `${META_API_URL}/${phone.phone_number_id}?fields=id,quality_rating`,
+          { headers: { 'Authorization': `Bearer ${waba.access_token}` } }
+        );
+        const phoneData = await phoneResponse.json() as any;
+
+        if (phoneData.error) {
+          checks.push({
+            check: `Messaging permission (${phone.display_number})`,
+            ok: false,
+            detail: formatMetaError(phoneData.error)
+          });
+        } else {
+          checks.push({
+            check: `Messaging permission (${phone.display_number})`,
+            ok: true,
+            detail: 'Token has access to this phone number'
+          });
+        }
+      } catch (err: any) {
+        checks.push({
+          check: `Messaging permission (${phone.display_number})`,
+          ok: false,
+          detail: err.message || 'Request to Meta failed'
+        });
+      }
+    }
+  }
+
+  const healthy = checks.every((c) => c.ok);
+
+  res.json({
+    success: true,
+    data: { healthy, checks }
+  });
 }));
 
 router.get('/embedded-signup-config', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {

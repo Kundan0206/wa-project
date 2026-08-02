@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Trash2, RefreshCw, Settings, Phone, CheckCircle, AlertCircle, Send, X, Sparkles, Webhook } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Settings, Phone, CheckCircle, AlertCircle, Send, X, Sparkles, Webhook, Stethoscope, RotateCcw, XCircle } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -14,7 +14,7 @@ import {
   useWabaAccounts, useDisconnectWaba, usePhoneNumbers, useEmbeddedCallback,
   useSyncPhoneNumbers, useRegisterPhoneNumber, useDeregisterPhoneNumber,
   useRequestVerificationCode, useVerifyPhoneCode, useWabaMetaDetails, useSetDefaultPhoneNumber,
-  usePhoneNumberDetails, useSubscribeWabaWebhooks
+  usePhoneNumberDetails, useSubscribeWabaWebhooks, useTestWabaConnection, WabaConnectionCheck
 } from '../../../lib/hooks';
 
 const qualityColors: Record<string, string> = {
@@ -49,6 +49,10 @@ function WhatsAppContent() {
   const [connecting, setConnecting] = useState(false);
   const [detailsWabaId, setDetailsWabaId] = useState<string | null>(null);
   const [detailsPhoneId, setDetailsPhoneId] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [testResultsWabaId, setTestResultsWabaId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<{ healthy: boolean; checks: WabaConnectionCheck[] } | null>(null);
+  const [testError, setTestError] = useState('');
   const fbRef = useRef<any>(null);
 
   const { data: wabaRes, isLoading: wabaLoading, refetch } = useWabaAccounts();
@@ -62,6 +66,7 @@ function WhatsAppContent() {
   const verifyCodeMutation = useVerifyPhoneCode();
   const setDefaultPhone = useSetDefaultPhoneNumber();
   const subscribeWebhooks = useSubscribeWabaWebhooks();
+  const testConnection = useTestWabaConnection();
   const [subscribeMessage, setSubscribeMessage] = useState('');
 
   const accounts = wabaRes?.data || [];
@@ -177,6 +182,28 @@ function WhatsAppContent() {
     } catch (err: any) {
       alert(err.message || 'Failed to subscribe to webhooks');
     }
+  };
+
+  const handleTestConnection = async (wabaId: string) => {
+    setTestResultsWabaId(wabaId);
+    setTestResults(null);
+    setTestError('');
+    try {
+      const res = await testConnection.mutateAsync(wabaId);
+      if (res.data) setTestResults(res.data);
+    } catch (err: any) {
+      setTestError(err.message || 'Failed to test connection');
+    }
+  };
+
+  // Meta's Embedded Signup updates the access token in place for a WABA it
+  // already recognizes as connected (see embedded-callback), rather than
+  // creating a duplicate - so "Reconnect" is the same flow as connecting,
+  // just re-run to mint a fresh token when the old one has expired or lost
+  // permissions (e.g. the "code 200: no permission to send" error).
+  const handleReconnect = () => {
+    setReconnecting(true);
+    setShowAddNumber(true);
   };
 
   const handleRegister = async () => {
@@ -302,18 +329,35 @@ function WhatsAppContent() {
                   </div>
                 </div>
 
-                <div className="flex space-x-sm pt-md border-t border-hairline">
+                <div className="flex flex-wrap gap-xs pt-md border-t border-hairline">
+                  <button
+                    onClick={() => handleTestConnection(account.id)}
+                    disabled={testConnection.isPending}
+                    title="Check whether this account's access token can still send messages"
+                    className="flex items-center justify-center gap-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition disabled:opacity-50"
+                  >
+                    <Stethoscope className={`w-4 h-4 ${testConnection.isPending && testResultsWabaId === account.id ? 'animate-pulse' : ''}`} />
+                    <span>Test Connection</span>
+                  </button>
+                  <button
+                    onClick={handleReconnect}
+                    title="Re-run Meta's Embedded Signup to refresh this account's access token"
+                    className="flex items-center justify-center gap-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reconnect</span>
+                  </button>
                   <button
                     onClick={handleSync}
                     disabled={syncPhoneNumbers.isPending}
-                    className="flex-1 flex items-center justify-center space-x-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition disabled:opacity-50"
+                    className="flex items-center justify-center gap-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition disabled:opacity-50"
                   >
                     <RefreshCw className={`w-4 h-4 ${syncPhoneNumbers.isPending ? 'animate-spin' : ''}`} />
                     <span>{syncPhoneNumbers.isPending ? 'Syncing...' : 'Sync'}</span>
                   </button>
                   <button
                     onClick={() => setDetailsWabaId(account.id)}
-                    className="flex-1 flex items-center justify-center space-x-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition"
+                    className="flex items-center justify-center gap-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition"
                   >
                     <Settings className="w-4 h-4" />
                     <span>Details</span>
@@ -322,7 +366,7 @@ function WhatsAppContent() {
                     onClick={() => handleSubscribeWebhooks(account.id)}
                     disabled={subscribeWebhooks.isPending}
                     title="Re-subscribe to incoming message webhooks for this account"
-                    className="flex-1 flex items-center justify-center space-x-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition disabled:opacity-50"
+                    className="flex items-center justify-center gap-xs px-sm py-xs border border-hairline-strong rounded-lg hover:bg-hairline-soft font-body text-body-sm text-ink transition disabled:opacity-50"
                   >
                     <Webhook className="w-4 h-4" />
                     <span>{subscribeWebhooks.isPending ? 'Subscribing...' : 'Enable Inbox'}</span>
@@ -460,14 +504,14 @@ function WhatsAppContent() {
           </div>
         </div>
 
-        {/* Connect WhatsApp Modal - Embedded Signup (handles both existing and new accounts) */}
+        {/* Connect/Reconnect WhatsApp Modal - Embedded Signup (handles both existing and new accounts) */}
         {showAddNumber && (
           <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
             <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft">
               <div className="flex items-center justify-between mb-md">
-                <h2 className="font-display text-display-md text-ink">Connect WhatsApp Business</h2>
+                <h2 className="font-display text-display-md text-ink">{reconnecting ? 'Reconnect WhatsApp Business' : 'Connect WhatsApp Business'}</h2>
                 <button
-                  onClick={() => { setShowAddNumber(false); setCodeError(''); setCodeSuccess(''); }}
+                  onClick={() => { setShowAddNumber(false); setCodeError(''); setCodeSuccess(''); setReconnecting(false); }}
                   className="p-xs hover:bg-hairline-soft rounded"
                 >
                   <X className="w-5 h-5 text-muted" />
@@ -486,12 +530,20 @@ function WhatsAppContent() {
               {!codeSuccess && (
                 <>
                   <div className="bg-gradient-mint/20 border border-hairline rounded-lg p-md mb-md">
-                    <p className="font-body text-body-sm text-muted mb-sm">
-                      This opens Meta&apos;s Embedded Signup flow. If you already manage a WhatsApp
-                      Business Account in Meta Business Manager, Meta will let you select it there
-                      &mdash; no duplicate account will be created. You can also create a brand new
-                      account from the same flow.
-                    </p>
+                    {reconnecting ? (
+                      <p className="font-body text-body-sm text-muted mb-sm">
+                        Re-run Meta&apos;s sign-in below and pick the same WhatsApp Business Account.
+                        This mints a fresh access token for it &mdash; use this if Test Connection
+                        reported a permission or authentication error.
+                      </p>
+                    ) : (
+                      <p className="font-body text-body-sm text-muted mb-sm">
+                        This opens Meta&apos;s Embedded Signup flow. If you already manage a WhatsApp
+                        Business Account in Meta Business Manager, Meta will let you select it there
+                        &mdash; no duplicate account will be created. You can also create a brand new
+                        account from the same flow.
+                      </p>
+                    )}
                     <ul className="font-body text-body-sm text-muted list-disc list-inside space-y-xs">
                       <li>Connect an existing WhatsApp Business Account, or create a new one</li>
                       <li>Add and verify a phone number</li>
@@ -511,11 +563,11 @@ function WhatsAppContent() {
                     >
                       <Sparkles className="w-4 h-4" />
                       <span>
-                        {connecting ? 'Connecting...' : embeddedSignupLoaded ? 'Connect with Meta' : 'Loading...'}
+                        {connecting ? 'Connecting...' : !embeddedSignupLoaded ? 'Loading...' : reconnecting ? 'Reconnect with Meta' : 'Connect with Meta'}
                       </span>
                     </button>
                     <button
-                      onClick={() => setShowAddNumber(false)}
+                      onClick={() => { setShowAddNumber(false); setReconnecting(false); }}
                       className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
                     >
                       Cancel
@@ -527,7 +579,7 @@ function WhatsAppContent() {
               {codeSuccess && (
                 <div className="flex justify-end">
                   <button
-                    onClick={() => { setShowAddNumber(false); setCodeSuccess(''); setCodeError(''); }}
+                    onClick={() => { setShowAddNumber(false); setCodeSuccess(''); setCodeError(''); setReconnecting(false); }}
                     className="px-md py-sm border border-hairline-strong rounded-pill font-body text-button text-ink hover:bg-hairline-soft transition"
                   >
                     Done
@@ -617,6 +669,80 @@ function WhatsAppContent() {
       {detailsPhoneId && (
         <PhoneDetailsModal phoneId={detailsPhoneId} onClose={() => setDetailsPhoneId(null)} />
       )}
+
+      {testResultsWabaId && (
+        <TestConnectionModal
+          isPending={testConnection.isPending}
+          results={testResults}
+          error={testError}
+          onReconnect={() => { setTestResultsWabaId(null); handleReconnect(); }}
+          onClose={() => { setTestResultsWabaId(null); setTestResults(null); setTestError(''); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function TestConnectionModal({
+  isPending, results, error, onReconnect, onClose
+}: {
+  isPending: boolean;
+  results: { healthy: boolean; checks: WabaConnectionCheck[] } | null;
+  error: string;
+  onReconnect: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50 p-md">
+      <div className="bg-surface-card rounded-xl p-xl w-full max-w-md border border-hairline shadow-soft">
+        <div className="flex items-center justify-between mb-md">
+          <h2 className="font-display text-display-sm text-ink">Connection Test</h2>
+          <button onClick={onClose} className="p-xs hover:bg-hairline-soft rounded">
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+
+        {isPending ? (
+          <div className="space-y-sm">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="h-12 bg-hairline-soft rounded animate-pulse" />
+            ))}
+          </div>
+        ) : error ? (
+          <p className="font-body text-body-md text-error text-center py-lg">{error}</p>
+        ) : results ? (
+          <>
+            <div className={`flex items-center gap-sm p-md rounded-lg mb-md ${results.healthy ? 'bg-success/10' : 'bg-error/10'}`}>
+              {results.healthy ? <CheckCircle className="w-5 h-5 text-success flex-shrink-0" /> : <XCircle className="w-5 h-5 text-error flex-shrink-0" />}
+              <span className={`font-body text-body-md ${results.healthy ? 'text-success' : 'text-error'}`}>
+                {results.healthy ? 'This account can send messages' : 'This account cannot send messages right now'}
+              </span>
+            </div>
+
+            <div className="space-y-sm mb-md">
+              {results.checks.map((c, i) => (
+                <div key={i} className="border border-hairline rounded-lg p-sm">
+                  <div className="flex items-center gap-xs mb-xxs">
+                    {c.ok ? <CheckCircle className="w-4 h-4 text-success flex-shrink-0" /> : <XCircle className="w-4 h-4 text-error flex-shrink-0" />}
+                    <span className="font-body text-body-strong text-ink text-body-sm">{c.check}</span>
+                  </div>
+                  <p className={`font-body text-caption ${c.ok ? 'text-muted' : 'text-error'}`}>{c.detail}</p>
+                </div>
+              ))}
+            </div>
+
+            {!results.healthy && (
+              <button
+                onClick={onReconnect}
+                className="w-full flex items-center justify-center gap-xs bg-primary text-on-primary font-body text-button h-10 rounded-pill hover:bg-primary-active transition"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reconnect this account
+              </button>
+            )}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

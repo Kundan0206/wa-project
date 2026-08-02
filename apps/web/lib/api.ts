@@ -43,8 +43,11 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(endpoint: string, params?: Record<string, string>) => {
-    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+  get: <T>(endpoint: string, params?: Record<string, string | undefined>) => {
+    const entries = params
+      ? Object.entries(params).filter((entry): entry is [string, string] => entry[1] !== undefined && entry[1] !== '')
+      : [];
+    const query = entries.length > 0 ? '?' + new URLSearchParams(entries).toString() : '';
     return request<T>(`${endpoint}${query}`);
   },
   post: <T>(endpoint: string, body?: unknown) =>

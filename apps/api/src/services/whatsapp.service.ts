@@ -25,7 +25,7 @@ interface MetaError {
 // Meta's top-level error.message is often a generic label ("Invalid
 // parameter"); the actionable detail is in error_user_msg / error_user_title
 // / error_data.details, which most of this codebase used to discard.
-function formatMetaError(error: MetaError): string {
+export function formatMetaError(error: MetaError): string {
   const parts = [
     error.error_user_title,
     error.error_user_msg,
