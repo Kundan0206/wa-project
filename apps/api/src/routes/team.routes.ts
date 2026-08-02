@@ -42,27 +42,26 @@ router.post('/invite', authenticate, requireRole('owner', 'admin'), asyncHandler
     return;
   }
 
-  // Supabase issues a random password internally for invite-type links and
-  // never returns it to the caller - the user sets their own via the link,
-  // so no temporary password is ever exposed in this response or its logs.
-  const { data: linkData, error: authError } = await supabase.auth.admin.generateLink({
-    type: 'invite',
-    email: data.email,
-    options: {
-      data: { name: data.name, tenant_id: req.tenantId },
-      redirectTo: `${process.env.FRONTEND_URL || ''}/auth/login`
-    }
+  // inviteUserByEmail (unlike generateLink) actually sends the invite email
+  // via Supabase's configured email provider - generateLink only returns a
+  // link string and never delivers anything, which silently dropped every
+  // invite before this fix. Supabase issues a random password internally
+  // for invited users and never returns it to the caller, so no temporary
+  // password is ever exposed in this response or its logs.
+  const { data: inviteData, error: authError } = await supabase.auth.admin.inviteUserByEmail(data.email, {
+    data: { name: data.name, tenant_id: req.tenantId },
+    redirectTo: `${process.env.FRONTEND_URL || ''}/auth/login`
   });
 
-  if (authError || !linkData?.user) {
-    res.status(500).json({ error: authError?.message || 'Failed to create user' });
+  if (authError || !inviteData?.user) {
+    res.status(500).json({ error: authError?.message || 'Failed to invite user' });
     return;
   }
 
   const { error: userError } = await supabase
     .from('users')
     .insert({
-      id: linkData.user.id,
+      id: inviteData.user.id,
       tenant_id: req.tenantId!,
       email: data.email,
       password_hash: 'managed_by_supabase_auth',
@@ -72,14 +71,17 @@ router.post('/invite', authenticate, requireRole('owner', 'admin'), asyncHandler
     });
 
   if (userError) {
+    // The auth user was already created and emailed - clean it up so a
+    // retry isn't blocked by "user already exists" with no team row to show for it.
+    await supabase.auth.admin.deleteUser(inviteData.user.id);
     res.status(500).json({ error: userError.message });
     return;
   }
 
   res.status(201).json({
     success: true,
-    data: { id: linkData.user.id, email: data.email, name: data.name, role: data.role },
-    message: 'User invited. An invite email has been sent (or the invite link was generated for delivery).'
+    data: { id: inviteData.user.id, email: data.email, name: data.name, role: data.role },
+    message: 'Invite email sent'
   });
 }));
 
@@ -104,9 +106,18 @@ router.delete('/members/:id', authenticate, requireRole('owner', 'admin'), async
     return;
   }
 
-  await supabase.auth.admin.deleteUser(id);
+  // Delete the team row first: if this fails, the auth user (and their
+  // ability to log in) is untouched and the member still shows up in the
+  // list to retry from. Deleting auth first would risk the opposite - a
+  // team row pointing at an already-deleted auth user.
+  const { error: deleteError } = await supabase.from('users').delete().eq('id', id);
 
-  await supabase.from('users').delete().eq('id', id);
+  if (deleteError) {
+    res.status(500).json({ error: deleteError.message });
+    return;
+  }
+
+  await supabase.auth.admin.deleteUser(id);
 
   res.json({ success: true, message: 'Member removed' });
 }));
