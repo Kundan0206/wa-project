@@ -6,7 +6,8 @@ import {
   AlertCircle, BarChart3, Clock, CheckCircle2, XCircle
 } from 'lucide-react';
 import {
-  useTemplates, useDeleteTemplate, useCreateTemplate, useSyncTemplate, useTemplateAnalytics
+  useTemplates, useDeleteTemplate, useCreateTemplate, useSyncTemplate, useTemplateAnalytics,
+  usePhoneNumbers, useSyncTemplatesFromMeta
 } from '../../../lib/hooks';
 import type { Template } from '@wa/shared';
 
@@ -137,6 +138,24 @@ export default function TemplatesPage() {
   const syncTemplate = useSyncTemplate();
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [analyticsTemplate, setAnalyticsTemplate] = useState<Template | null>(null);
+
+  const { data: phoneNumbersRes } = usePhoneNumbers();
+  const phoneNumbers = phoneNumbersRes?.data || [];
+  const [selectedPhoneId, setSelectedPhoneId] = useState('');
+  const syncFromMeta = useSyncTemplatesFromMeta();
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  const handleSyncFromMeta = async () => {
+    if (!selectedPhoneId) return;
+    setSyncResult(null);
+    try {
+      const res = await syncFromMeta.mutateAsync(selectedPhoneId);
+      const { total, created, updated } = res.data || { total: 0, created: 0, updated: 0 };
+      setSyncResult(`Synced ${total} template${total === 1 ? '' : 's'} from Meta — ${created} new, ${updated} updated.`);
+    } catch (err: any) {
+      setSyncResult(err.message || 'Failed to sync templates from Meta');
+    }
+  };
 
   const templates = templatesRes?.data || [];
 
@@ -296,8 +315,39 @@ export default function TemplatesPage() {
           </button>
         </div>
 
+        <div className="bg-surface-card border border-hairline rounded-xl p-md mb-lg">
+          <div className="flex items-center flex-wrap gap-sm">
+            <RefreshCw className="w-4 h-4 text-primary flex-shrink-0" />
+            <span className="font-body text-body-sm text-ink flex-shrink-0">Sync templates from Meta for</span>
+            <select
+              value={selectedPhoneId}
+              onChange={(e) => { setSelectedPhoneId(e.target.value); setSyncResult(null); }}
+              className="bg-surface-card border border-hairline-strong rounded-md font-body text-body-sm text-ink px-sm h-9 min-w-[14rem] focus:outline-none focus:border-2 focus:border-primary transition"
+            >
+              <option value="">Select a connected number...</option>
+              {phoneNumbers.map((p) => (
+                <option key={p.id} value={p.id}>{p.displayName} &middot; {p.displayNumber}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleSyncFromMeta}
+              disabled={!selectedPhoneId || syncFromMeta.isPending}
+              className="flex items-center gap-xs bg-primary text-on-primary font-body text-button h-9 px-lg rounded-pill hover:bg-primary-active transition disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncFromMeta.isPending ? 'animate-spin' : ''}`} />
+              {syncFromMeta.isPending ? 'Syncing...' : 'Sync All Templates'}
+            </button>
+            {phoneNumbers.length === 0 && (
+              <span className="font-body text-caption text-muted-soft">No connected numbers yet &mdash; connect one on the WhatsApp page first</span>
+            )}
+          </div>
+          {syncResult && (
+            <p className={`font-body text-body-sm mt-sm ${syncFromMeta.isError ? 'text-error' : 'text-success'}`}>{syncResult}</p>
+          )}
+        </div>
+
         <div className="bg-surface-card border border-hairline rounded-xl overflow-hidden">
-          <div className="p-md border-b border-hairline flex items-center justify-between">
+          <div className="p-md border-b border-hairline flex items-center justify-between flex-wrap gap-sm">
             <div className="relative w-64">
               <Search className="absolute left-sm top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input
@@ -322,131 +372,124 @@ export default function TemplatesPage() {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md p-md">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="border border-hairline rounded-xl p-md animate-pulse">
-                  <div className="h-5 w-32 bg-hairline-soft rounded mb-3" />
-                  <div className="h-4 w-20 bg-hairline-soft rounded mb-3" />
-                  <div className="h-8 w-full bg-hairline-soft rounded" />
-                </div>
+            <div className="p-md space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-14 bg-hairline-soft rounded animate-pulse" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-lg text-muted font-body text-body-md">
-              {searchTerm || statusFilter !== 'all' ? 'No templates match your filters' : 'No templates yet — create one to start sending outbound messages'}
+              {searchTerm || statusFilter !== 'all' ? 'No templates match your filters' : 'No templates yet — create one, or sync from Meta if templates already exist there'}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md p-md">
-              {filtered.map((template) => {
-                const rendered = renderTemplateText(template.components as any[]);
-                const StatusIcon = statusIcons[template.status] || Clock;
-                const quality = qualityStyles[template.qualityScore || ''] || null;
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-canvas-soft">
+                  <tr>
+                    <th className="px-md py-sm text-left font-body text-title-sm text-muted">Name</th>
+                    <th className="px-md py-sm text-left font-body text-title-sm text-muted">Preview</th>
+                    <th className="px-md py-sm text-left font-body text-title-sm text-muted">Category</th>
+                    <th className="px-md py-sm text-left font-body text-title-sm text-muted">Language</th>
+                    <th className="px-md py-sm text-left font-body text-title-sm text-muted">Quality</th>
+                    <th className="px-md py-sm text-left font-body text-title-sm text-muted">Status</th>
+                    <th className="px-md py-sm text-right font-body text-title-sm text-muted">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {filtered.map((template) => {
+                    const rendered = renderTemplateText(template.components as any[]);
+                    const StatusIcon = statusIcons[template.status] || Clock;
+                    const quality = qualityStyles[template.qualityScore || ''] || null;
+                    const previewLine = [rendered.header, rendered.body].filter(Boolean).join(' — ');
 
-                return (
-                  <div key={template.id} className="border border-hairline rounded-xl p-md hover:shadow-soft transition flex flex-col">
-                    <div className="flex items-start justify-between mb-sm gap-xs">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-xxs">
-                          <h3 className="font-body text-title-sm text-ink truncate">{template.name}</h3>
-                          <CopyableName name={template.name} />
-                        </div>
-                        <div className="flex items-center flex-wrap gap-xs mt-xs">
-                          <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${categoryColors[template.category] || categoryColors.utility}`}>
+                    return (
+                      <tr key={template.id} className="hover:bg-canvas-soft align-top">
+                        <td className="px-md py-sm">
+                          <div className="flex items-center gap-xxs">
+                            <span className="font-body text-body-strong text-ink whitespace-nowrap">{template.name}</span>
+                            <CopyableName name={template.name} />
+                          </div>
+                          {template.status === 'rejected' && template.rejectionReason && (
+                            <div className="flex items-start gap-xxs font-body text-caption text-error mt-xxs max-w-xs">
+                              <AlertCircle className="w-3 h-3 flex-shrink-0 mt-xxs" />
+                              <span className="line-clamp-2">{template.rejectionReason}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-md py-sm max-w-sm">
+                          <p className="font-body text-body-sm text-body line-clamp-2">
+                            {previewLine || <span className="text-muted-soft italic">No content</span>}
+                          </p>
+                        </td>
+                        <td className="px-md py-sm">
+                          <span className={`text-caption-uppercase px-sm py-xxs rounded-pill whitespace-nowrap ${categoryColors[template.category] || categoryColors.utility}`}>
                             {template.category}
                           </span>
-                          <span className="font-body text-caption text-muted-soft">{template.language}</span>
-                          {quality && (
-                            <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${quality.color}`} title={quality.label}>
+                        </td>
+                        <td className="px-md py-sm font-body text-body-sm text-muted-soft whitespace-nowrap">{template.language}</td>
+                        <td className="px-md py-sm">
+                          {quality ? (
+                            <span className={`text-caption-uppercase px-sm py-xxs rounded-pill whitespace-nowrap ${quality.color}`} title={quality.label}>
                               {template.qualityScore}
                             </span>
+                          ) : (
+                            <span className="font-body text-caption text-muted-soft">&mdash;</span>
                           )}
-                        </div>
-                      </div>
-                      <span className={`flex-shrink-0 inline-flex items-center gap-xxs text-caption-uppercase px-sm py-xxs rounded-pill ${statusColors[template.status] || statusColors.pending}`}>
-                        <StatusIcon className="w-3 h-3" /> {template.status}
-                      </span>
-                    </div>
-
-                    <div className="bg-[#e5ddd5] rounded-lg p-sm mb-sm flex-1">
-                      <div className="bg-white rounded-md shadow-sm p-sm">
-                        {rendered.header && (
-                          <p className="font-body text-body-strong text-ink text-body-sm mb-xxs line-clamp-1">{rendered.header}</p>
-                        )}
-                        <p className="font-body text-body-sm text-ink whitespace-pre-wrap line-clamp-3">
-                          {rendered.body || <span className="text-muted-soft italic">No body content</span>}
-                        </p>
-                        {rendered.footer && (
-                          <p className="font-body text-caption text-muted-soft mt-xxs line-clamp-1">{rendered.footer}</p>
-                        )}
-                        {rendered.buttons.length > 0 && (
-                          <div className="border-t border-hairline-soft mt-xs pt-xxs space-y-xxs">
-                            {rendered.buttons.slice(0, 2).map((btn: any, i: number) => (
-                              <div key={i} className="font-body text-caption text-primary text-center py-xxs truncate">
-                                {btn.text}
-                              </div>
-                            ))}
-                            {rendered.buttons.length > 2 && (
-                              <div className="font-body text-caption text-muted text-center">+{rendered.buttons.length - 2} more</div>
-                            )}
+                        </td>
+                        <td className="px-md py-sm">
+                          <span className={`inline-flex items-center gap-xxs text-caption-uppercase px-sm py-xxs rounded-pill whitespace-nowrap ${statusColors[template.status] || statusColors.pending}`}>
+                            <StatusIcon className="w-3 h-3" /> {template.status}
+                          </span>
+                        </td>
+                        <td className="px-md py-sm">
+                          <div className="flex items-center justify-end space-x-xxs">
+                            <button
+                              onClick={() => setViewTemplate(template)}
+                              title="View full details"
+                              className="p-xs hover:bg-hairline-soft rounded-md transition"
+                            >
+                              <Eye className="w-4 h-4 text-muted" />
+                            </button>
+                            <button
+                              onClick={() => setAnalyticsTemplate(template)}
+                              title="View delivery analytics"
+                              className="p-xs hover:bg-hairline-soft rounded-md transition"
+                            >
+                              <BarChart3 className="w-4 h-4 text-muted" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                setSyncingId(template.id);
+                                try {
+                                  await syncTemplate.mutateAsync(template.id);
+                                } finally {
+                                  setSyncingId(null);
+                                }
+                              }}
+                              disabled={syncingId === template.id}
+                              title="Re-check status from Meta"
+                              className="p-xs hover:bg-hairline-soft rounded-md transition disabled:opacity-50"
+                            >
+                              <RefreshCw className={`w-4 h-4 text-muted ${syncingId === template.id ? 'animate-spin' : ''}`} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Delete template "${template.name}"? This removes it from Meta permanently.`)) {
+                                  deleteTemplate.mutate(template.id);
+                                }
+                              }}
+                              title="Delete template"
+                              className="p-xs hover:bg-red-50 rounded-md transition"
+                            >
+                              <Trash2 className="w-4 h-4 text-muted hover:text-error" />
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {template.status === 'rejected' && template.rejectionReason && (
-                      <div className="flex items-start gap-xs font-body text-caption text-error bg-error/10 p-sm rounded mb-sm">
-                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-xxs" />
-                        <span>{template.rejectionReason}</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-xs border-t border-hairline">
-                      <div className="flex space-x-xxs">
-                        <button
-                          onClick={() => setViewTemplate(template)}
-                          title="View full details"
-                          className="p-xs hover:bg-hairline-soft rounded-md transition"
-                        >
-                          <Eye className="w-4 h-4 text-muted" />
-                        </button>
-                        <button
-                          onClick={() => setAnalyticsTemplate(template)}
-                          title="View delivery analytics"
-                          className="p-xs hover:bg-hairline-soft rounded-md transition"
-                        >
-                          <BarChart3 className="w-4 h-4 text-muted" />
-                        </button>
-                        <button
-                          onClick={async () => {
-                            setSyncingId(template.id);
-                            try {
-                              await syncTemplate.mutateAsync(template.id);
-                            } finally {
-                              setSyncingId(null);
-                            }
-                          }}
-                          disabled={syncingId === template.id}
-                          title="Re-check status from Meta"
-                          className="p-xs hover:bg-hairline-soft rounded-md transition disabled:opacity-50"
-                        >
-                          <RefreshCw className={`w-4 h-4 text-muted ${syncingId === template.id ? 'animate-spin' : ''}`} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm(`Delete template "${template.name}"? This removes it from Meta permanently.`)) {
-                              deleteTemplate.mutate(template.id);
-                            }
-                          }}
-                          title="Delete template"
-                          className="p-xs hover:bg-red-50 rounded-md transition"
-                        >
-                          <Trash2 className="w-4 h-4 text-muted hover:text-error" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

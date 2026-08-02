@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest, requireRole, asyncHandler } from '../middleware/auth.js';
-import { createTemplate, deleteTemplate, syncTemplateFromMeta } from '../services/whatsapp.service.js';
+import { createTemplate, deleteTemplate, syncTemplateFromMeta, listTemplatesFromMeta } from '../services/whatsapp.service.js';
 
 // Never select access_token in responses that go back to the browser.
 const WABA_SAFE_COLUMNS = 'id, tenant_id, waba_id, waba_name, status, currency, timezone, created_at, updated_at';
@@ -14,6 +14,92 @@ const createTemplateSchema = z.object({
   language: z.string().default('en'),
   components: z.array(z.any()).min(1)
 });
+
+const syncFromMetaSchema = z.object({
+  phoneNumberId: z.string().uuid()
+});
+
+// Pulls the full template list from Meta for the WABA behind a given
+// connected phone number and upserts it locally by template_id_meta - picks
+// up templates created directly in Meta Business Manager (never seen by
+// this app before) as well as refreshing status/quality/rejection reason
+// for templates we already know about, all in one pass.
+router.post('/sync-from-meta', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = syncFromMetaSchema.parse(req.body);
+  const supabase = req.supabase!;
+
+  const { data: phoneNumber } = await supabase
+    .from('phone_numbers')
+    .select('id, waba_id, waba_accounts(waba_id, access_token)')
+    .eq('id', data.phoneNumberId)
+    .eq('tenant_id', req.tenantId)
+    .single();
+
+  if (!phoneNumber) {
+    res.status(404).json({ error: 'Phone number not found' });
+    return;
+  }
+
+  const waba = phoneNumber.waba_accounts as any;
+  if (!waba?.access_token || !waba?.waba_id) {
+    res.status(400).json({ error: 'No connected WhatsApp Business Account for this number' });
+    return;
+  }
+
+  let metaTemplates;
+  try {
+    metaTemplates = await listTemplatesFromMeta(waba.access_token, waba.waba_id);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Failed to fetch templates from Meta' });
+    return;
+  }
+
+  let created = 0;
+  let updated = 0;
+
+  for (const t of metaTemplates) {
+    const { data: existing } = await supabase
+      .from('templates')
+      .select('id')
+      .eq('tenant_id', req.tenantId)
+      .eq('template_id_meta', t.id)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from('templates')
+        .update({
+          status: t.status,
+          quality_score: t.qualityScore || null,
+          rejection_reason: t.rejectionReason || null,
+          components: t.components
+        })
+        .eq('id', existing.id);
+      updated++;
+    } else {
+      await supabase
+        .from('templates')
+        .insert({
+          tenant_id: req.tenantId!,
+          waba_id: phoneNumber.waba_id,
+          template_id_meta: t.id,
+          name: t.name,
+          category: t.category,
+          language: t.language,
+          components: t.components,
+          status: t.status,
+          quality_score: t.qualityScore || null,
+          rejection_reason: t.rejectionReason || null
+        });
+      created++;
+    }
+  }
+
+  res.json({
+    success: true,
+    data: { total: metaTemplates.length, created, updated }
+  });
+}));
 
 router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const supabase = req.supabase!;

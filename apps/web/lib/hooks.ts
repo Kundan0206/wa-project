@@ -290,6 +290,15 @@ export function useSyncTemplate() {
   });
 }
 
+export function useSyncTemplatesFromMeta() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (phoneNumberId: string) =>
+      api.post<ApiResponse<{ total: number; created: number; updated: number }>>('/api/v1/templates/sync-from-meta', { phoneNumberId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['templates'] }),
+  });
+}
+
 export interface TemplateAnalytics {
   sent: number;
   delivered: number;

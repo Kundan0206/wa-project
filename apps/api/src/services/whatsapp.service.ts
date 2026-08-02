@@ -352,6 +352,68 @@ export async function syncTemplateFromMeta(accessToken: string, templateId: stri
   };
 }
 
+export interface MetaTemplateListItem {
+  id: string;
+  name: string;
+  category: string;
+  language: string;
+  status: string;
+  qualityScore?: string;
+  rejectionReason?: string;
+  components: any[];
+}
+
+// Fetches every template Meta has for a WABA, following cursor pagination -
+// used to bring in templates that exist on Meta's side but were never
+// created through this app (e.g. made directly in Meta Business Manager).
+export async function listTemplatesFromMeta(accessToken: string, wabaId: string): Promise<MetaTemplateListItem[]> {
+  const results: MetaTemplateListItem[] = [];
+  let url: string | undefined =
+    `${META_API_URL}/${wabaId}/message_templates?fields=id,name,category,language,status,quality_score,rejected_reason,components&limit=100`;
+
+  while (url) {
+    const response: Response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    const data = await readJson<{
+      data?: Array<{
+        id: string;
+        name: string;
+        category: string;
+        language: string;
+        status: string;
+        quality_score?: { score?: string };
+        rejected_reason?: string;
+        components?: any[];
+      }>;
+      paging?: { next?: string };
+      error?: MetaError;
+    }>(response);
+
+    if (data.error) {
+      throw new Error(formatMetaError(data.error));
+    }
+
+    for (const t of data.data || []) {
+      results.push({
+        id: t.id,
+        name: t.name,
+        category: (t.category || 'utility').toLowerCase(),
+        language: t.language,
+        status: (t.status || 'pending').toLowerCase(),
+        qualityScore: t.quality_score?.score,
+        rejectionReason: t.rejected_reason,
+        components: t.components || []
+      });
+    }
+
+    url = data.paging?.next;
+  }
+
+  return results;
+}
+
 export async function downloadWhatsAppMedia(accessToken: string, mediaId: string) {
   const response = await fetch(`${META_API_URL}/${mediaId}`, {
     headers: { 'Authorization': `Bearer ${accessToken}` }
