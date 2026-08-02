@@ -437,8 +437,8 @@ function FlowAnalyticsModal({ flowId, flowName, onClose }: { flowId: string; flo
   const analytics = data?.data;
 
   return (
-    <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50">
-      <div className="bg-surface-card rounded-xl p-xl w-full max-w-md border border-hairline shadow-soft">
+    <div className="fixed inset-0 bg-canvas-deep/50 flex items-center justify-center z-50 p-md">
+      <div className="bg-surface-card rounded-xl p-xl w-full max-w-lg border border-hairline shadow-soft max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-md">
           <h2 className="font-display text-display-sm text-ink">{flowName}</h2>
           <button onClick={onClose} className="p-xs hover:bg-hairline-soft rounded">
@@ -447,23 +447,58 @@ function FlowAnalyticsModal({ flowId, flowName, onClose }: { flowId: string; flo
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-md">
-            {Array.from({ length: 2 }).map((_, i) => (
+          <div className="grid grid-cols-3 gap-md">
+            {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-16 bg-hairline-soft rounded animate-pulse" />
             ))}
           </div>
         ) : analytics ? (
-          <div className="grid grid-cols-2 gap-md">
-            <div className="p-md bg-canvas-soft rounded-lg">
-              <div className="font-body text-caption text-muted">Total Sessions</div>
-              <div className="font-display text-display-sm text-ink">{analytics.totalSessions.toLocaleString()}</div>
+          <>
+            <div className="grid grid-cols-3 gap-md mb-lg">
+              <div className="p-md bg-canvas-soft rounded-lg">
+                <div className="font-body text-caption text-muted">Total Sessions</div>
+                <div className="font-display text-display-sm text-ink">{analytics.totalSessions.toLocaleString()}</div>
+              </div>
+              <div className="p-md bg-canvas-soft rounded-lg">
+                <div className="font-body text-caption text-muted">Completed</div>
+                <div className="font-display text-display-sm text-ink">{analytics.completed.toLocaleString()}</div>
+                <div className="font-body text-caption text-muted-soft">{analytics.completionRate}%</div>
+              </div>
+              <div className="p-md bg-canvas-soft rounded-lg">
+                <div className="font-body text-caption text-muted">Failed</div>
+                <div className={`font-display text-display-sm ${analytics.failed > 0 ? 'text-error' : 'text-ink'}`}>{analytics.failed.toLocaleString()}</div>
+              </div>
             </div>
-            <div className="p-md bg-canvas-soft rounded-lg">
-              <div className="font-body text-caption text-muted">Completed</div>
-              <div className="font-display text-display-sm text-ink">{analytics.completed.toLocaleString()}</div>
-              <div className="font-body text-caption text-muted-soft">{analytics.completionRate}%</div>
-            </div>
-          </div>
+
+            {analytics.totalSessions === 0 ? (
+              <p className="font-body text-body-md text-muted text-center py-lg">
+                No sessions yet &mdash; this flow hasn&apos;t matched an incoming message. Double-check the trigger and that the phone number connected to this flow is the same one receiving messages.
+              </p>
+            ) : (
+              <div>
+                <h3 className="font-body text-title-sm text-ink mb-sm">Recent Runs</h3>
+                <div className="space-y-xs">
+                  {analytics.recentSessions.map((s) => (
+                    <div key={s.id} className="border border-hairline rounded-lg p-sm">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-caption-uppercase px-sm py-xxs rounded-pill ${
+                          s.status === 'completed' ? 'bg-success/10 text-success' :
+                          s.status === 'failed' ? 'bg-error/10 text-error' :
+                          'bg-hairline-soft text-muted'
+                        }`}>
+                          {s.status}
+                        </span>
+                        <span className="font-body text-caption text-muted-soft">{new Date(s.startedAt).toLocaleString()}</span>
+                      </div>
+                      {s.errorMessage && (
+                        <p className="font-body text-caption text-error mt-xs">{s.errorMessage}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <p className="font-body text-body-md text-muted text-center py-lg">No sessions yet</p>
         )}

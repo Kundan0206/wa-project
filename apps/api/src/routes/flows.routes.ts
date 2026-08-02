@@ -157,12 +157,27 @@ router.get('/:id/analytics', authenticate, asyncHandler(async (req: AuthRequest,
     .eq('flow_id', id)
     .eq('status', 'completed');
 
+  const { count: failed } = await supabase
+    .from('flow_sessions')
+    .select('*', { count: 'exact', head: true })
+    .eq('flow_id', id)
+    .eq('status', 'failed');
+
+  const { data: recentSessions } = await supabase
+    .from('flow_sessions')
+    .select('id, status, error_message, current_node_id, started_at, ended_at')
+    .eq('flow_id', id)
+    .order('started_at', { ascending: false })
+    .limit(10);
+
   res.json({
     success: true,
     data: {
       totalSessions: total || 0,
       completed: completed || 0,
-      completionRate: total ? ((completed || 0) / total * 100).toFixed(2) : '0'
+      failed: failed || 0,
+      completionRate: total ? ((completed || 0) / total * 100).toFixed(2) : '0',
+      recentSessions: recentSessions || []
     }
   });
 }));

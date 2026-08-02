@@ -260,6 +260,7 @@ CREATE TABLE flow_sessions (
   current_node_id TEXT,
   variables JSONB DEFAULT '{}',
   status TEXT DEFAULT 'active',
+  error_message TEXT,
   started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   ended_at TIMESTAMP WITH TIME ZONE
 );

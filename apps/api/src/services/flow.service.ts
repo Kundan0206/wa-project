@@ -82,6 +82,7 @@ export async function runFlow(ctx: RunContext) {
 
   let current: FlowNode | undefined = nodes[0];
   const visited = new Set<string>();
+  let failureReason: string | null = null;
 
   while (current && !visited.has(current.id)) {
     visited.add(current.id);
@@ -89,6 +90,7 @@ export async function runFlow(ctx: RunContext) {
     try {
       await executeNode(current, ctx);
     } catch (err: any) {
+      failureReason = `Step "${current.type}" (${current.id}) failed: ${err.message}`;
       console.error(`Flow ${flow.id} node ${current.id} failed:`, err.message);
       break;
     }
@@ -106,7 +108,11 @@ export async function runFlow(ctx: RunContext) {
   if (session) {
     await db
       .from('flow_sessions')
-      .update({ status: 'completed', ended_at: new Date().toISOString() })
+      .update({
+        status: failureReason ? 'failed' : 'completed',
+        error_message: failureReason,
+        ended_at: new Date().toISOString()
+      })
       .eq('id', session.id);
   }
 }
@@ -118,12 +124,13 @@ async function executeNode(node: FlowNode, ctx: RunContext) {
   switch (node.type) {
     case 'send_text': {
       const text = String(node.data?.text || '').trim();
-      if (!text || !accessToken) return;
+      if (!text) throw new Error('Message text is empty');
+      if (!accessToken) throw new Error('No WhatsApp access token for this phone number (WABA may be disconnected)');
       await sendWhatsAppMessage(accessToken, phone.phone_number_id, contact.phone, {
         type: 'text',
         text: { body: text }
       });
-      await db.from('messages').insert({
+      const { error } = await db.from('messages').insert({
         tenant_id: phone.tenant_id,
         phone_number_id: phone.id,
         contact_id: contact.id,
@@ -134,15 +141,17 @@ async function executeNode(node: FlowNode, ctx: RunContext) {
         content: text,
         status: 'sent'
       });
+      if (error) throw new Error(`Message sent but failed to record locally: ${error.message}`);
       break;
     }
 
     case 'send_template': {
       const templateName = String(node.data?.templateName || '');
       const languageCode = String(node.data?.languageCode || 'en');
-      if (!templateName || !accessToken) return;
+      if (!templateName) throw new Error('No template selected for this step');
+      if (!accessToken) throw new Error('No WhatsApp access token for this phone number (WABA may be disconnected)');
       await sendTemplateMessage(accessToken, phone.phone_number_id, contact.phone, templateName, languageCode);
-      await db.from('messages').insert({
+      const { error } = await db.from('messages').insert({
         tenant_id: phone.tenant_id,
         phone_number_id: phone.id,
         contact_id: contact.id,
@@ -153,13 +162,16 @@ async function executeNode(node: FlowNode, ctx: RunContext) {
         content: JSON.stringify({ template_name: templateName }),
         status: 'sent'
       });
+      if (error) throw new Error(`Template sent but failed to record locally: ${error.message}`);
       break;
     }
 
     case 'add_tag': {
       const tag = String(node.data?.tag || '').trim();
-      if (!tag) return;
-      await db.from('contact_tags').insert({ tenant_id: phone.tenant_id, contact_id: contact.id, tag });
+      if (!tag) throw new Error('No tag name provided for this step');
+      const { error } = await db.from('contact_tags').insert({ tenant_id: phone.tenant_id, contact_id: contact.id, tag });
+      // A duplicate tag (the contact already has it) is not a real failure.
+      if (error && error.code !== '23505') throw new Error(`Failed to add tag: ${error.message}`);
       break;
     }
 

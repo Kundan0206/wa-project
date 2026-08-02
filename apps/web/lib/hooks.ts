@@ -430,10 +430,21 @@ export function useCreateFlow() {
   });
 }
 
+export interface FlowSessionSummary {
+  id: string;
+  status: string;
+  errorMessage: string | null;
+  currentNodeId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+}
+
 interface FlowAnalytics {
   totalSessions: number;
   completed: number;
+  failed: number;
   completionRate: string;
+  recentSessions: FlowSessionSummary[];
 }
 
 export function useFlowAnalytics(id: string) {
@@ -441,6 +452,7 @@ export function useFlowAnalytics(id: string) {
     queryKey: ['flows', id, 'analytics'],
     queryFn: () => api.get<ApiResponse<FlowAnalytics>>(`/api/v1/flows/${id}/analytics`),
     enabled: !!id,
+    refetchInterval: 10000,
   });
 }
 
