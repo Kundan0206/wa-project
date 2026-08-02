@@ -97,6 +97,43 @@ router.post('/:id/test', authenticate, asyncHandler(async (req: AuthRequest, res
   res.json({ success: true, message: 'Test event queued' });
 }));
 
+router.get('/meta-events', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const supabase = req.supabase!;
+  const { eventType, status, page = '1', limit = '25' } = req.query;
+
+  let query = supabase
+    .from('meta_event_logs')
+    .select('*', { count: 'exact' })
+    .eq('tenant_id', req.tenantId);
+
+  if (eventType) query = query.eq('event_type', eventType);
+  if (status) query = query.eq('status', status);
+
+  const pageNum = parseInt(page as string);
+  const limitNum = parseInt(limit as string);
+  const skip = (pageNum - 1) * limitNum;
+
+  const { data: logs, error, count } = await query
+    .order('received_at', { ascending: false })
+    .range(skip, skip + limitNum - 1);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: logs || [],
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total: count || 0,
+      totalPages: Math.ceil((count || 0) / limitNum)
+    }
+  });
+}));
+
 router.get('/logs', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const supabase = req.supabase!;
   const { page = '1', limit = '20' } = req.query;

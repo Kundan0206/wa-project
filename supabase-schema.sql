@@ -66,6 +66,7 @@ CREATE TABLE phone_numbers (
   display_number TEXT NOT NULL,
   display_name TEXT NOT NULL,
   quality_rating TEXT,
+  messaging_limit TEXT,
   status TEXT DEFAULT 'pending',
   is_default BOOLEAN DEFAULT false,
   webhook_url TEXT,
@@ -151,7 +152,7 @@ CREATE TABLE templates (
   status TEXT DEFAULT 'pending',
   components JSONB NOT NULL,
   rejection_reason TEXT,
-  quality_score INT,
+  quality_score TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -354,6 +355,24 @@ CREATE TABLE payment_orders (
   paid_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Meta Event Logs (raw record of every webhook event Meta sends us -
+-- message status updates, template status updates, quality updates, etc.
+-- Distinct from client_webhooks/webhook_logs, which track OUR outbound
+-- deliveries to customer-configured endpoints.)
+CREATE TABLE meta_event_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  waba_id TEXT,
+  phone_number_id TEXT,
+  entity_id TEXT,
+  summary TEXT,
+  payload JSONB NOT NULL,
+  status TEXT DEFAULT 'processed',
+  error_message TEXT,
+  received_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Invoices
 CREATE TABLE invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -410,6 +429,33 @@ CREATE INDEX idx_campaigns_tenant ON campaigns(tenant_id);
 CREATE INDEX idx_flows_tenant ON flows(tenant_id);
 CREATE INDEX idx_payment_orders_tenant ON payment_orders(tenant_id);
 CREATE INDEX idx_payment_orders_razorpay_order ON payment_orders(razorpay_order_id);
+CREATE INDEX idx_meta_event_logs_tenant ON meta_event_logs(tenant_id);
+CREATE INDEX idx_meta_event_logs_type ON meta_event_logs(event_type);
+CREATE INDEX idx_meta_event_logs_received ON meta_event_logs(received_at DESC);
+
+-- ============================================================
+-- MIGRATION (run this against an already-provisioned database -
+-- the CREATE TABLE statements above only apply on a fresh install)
+-- ============================================================
+-- ALTER TABLE phone_numbers ADD COLUMN IF NOT EXISTS messaging_limit TEXT;
+-- ALTER TABLE templates ALTER COLUMN quality_score TYPE TEXT;
+--
+-- CREATE TABLE IF NOT EXISTS meta_event_logs (
+--   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+--   event_type TEXT NOT NULL,
+--   waba_id TEXT,
+--   phone_number_id TEXT,
+--   entity_id TEXT,
+--   summary TEXT,
+--   payload JSONB NOT NULL,
+--   status TEXT DEFAULT 'processed',
+--   error_message TEXT,
+--   received_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- CREATE INDEX IF NOT EXISTS idx_meta_event_logs_tenant ON meta_event_logs(tenant_id);
+-- CREATE INDEX IF NOT EXISTS idx_meta_event_logs_type ON meta_event_logs(event_type);
+-- CREATE INDEX IF NOT EXISTS idx_meta_event_logs_received ON meta_event_logs(received_at DESC);
 
 -- Insert default plans
 INSERT INTO plans (name, price_monthly, price_yearly, message_limit, contact_limit, agent_limit, features) VALUES

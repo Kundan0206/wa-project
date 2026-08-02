@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { processWebhookEvent } from '../services/webhook.service.js';
+import { processWebhookEvent, logMetaEvent } from '../services/webhook.service.js';
 
 const router = Router();
 
@@ -62,26 +62,61 @@ router.post('/whatsapp', asyncHandler(async (req: Request, res: Response) => {
   const entries = req.body.entry || [];
 
   for (const entry of entries) {
+    const wabaId = entry.id;
     const changes = entry.changes || [];
 
     for (const change of changes) {
+      const field = change.field || 'unknown';
       const value = change.value || {};
       const messages = value.messages || [];
       const statuses = value.statuses || [];
 
-      for (const message of messages) {
-        await processWebhookEvent({
-          phoneNumberId: value.metadata?.phone_number_id,
-          message,
-          contacts: value.contacts
-        });
-      }
+      if (field === 'messages') {
+        for (const message of messages) {
+          await logMetaEvent({
+            eventType: 'message_received',
+            wabaId,
+            phoneNumberId: value.metadata?.phone_number_id,
+            entityId: message.id,
+            payload: { message, contacts: value.contacts, metadata: value.metadata }
+          });
+          await processWebhookEvent({
+            phoneNumberId: value.metadata?.phone_number_id,
+            message,
+            contacts: value.contacts
+          });
+        }
 
-      for (const status of statuses) {
-        await processWebhookEvent({
-          phoneNumberId: value.metadata?.phone_number_id,
-          status
+        for (const status of statuses) {
+          await logMetaEvent({
+            eventType: `message_${status.status}`,
+            wabaId,
+            phoneNumberId: value.metadata?.phone_number_id,
+            entityId: status.id,
+            payload: status
+          });
+          await processWebhookEvent({
+            phoneNumberId: value.metadata?.phone_number_id,
+            status
+          });
+        }
+      } else {
+        // Every other Meta webhook field we don't have dedicated handling for
+        // yet (message_template_status_update, phone_number_quality_update,
+        // account_update, etc.) is still recorded so it's visible in the
+        // Logs UI even before/without specific business logic for it.
+        await logMetaEvent({
+          eventType: field,
+          wabaId,
+          phoneNumberId: value.metadata?.phone_number_id || value.display_phone_number,
+          entityId: value.message_template_id || value.phone_number || undefined,
+          payload: value
         });
+        await processWebhookEvent({
+          field,
+          wabaId,
+          value
+        } as any);
       }
     }
   }

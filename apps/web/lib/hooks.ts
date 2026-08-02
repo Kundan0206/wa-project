@@ -536,6 +536,28 @@ export function useWebhookLogs(params?: { page?: string; limit?: string }) {
   });
 }
 
+export interface MetaEventLog {
+  id: string;
+  tenantId: string;
+  eventType: string;
+  wabaId: string | null;
+  phoneNumberId: string | null;
+  entityId: string | null;
+  summary: string | null;
+  payload: unknown;
+  status: 'processed' | 'error' | 'ignored';
+  errorMessage: string | null;
+  receivedAt: string;
+}
+
+export function useMetaEventLogs(params?: { eventType?: string; status?: string; page?: string; limit?: string }) {
+  return useQuery({
+    queryKey: ['webhooks', 'meta-events', params],
+    queryFn: () => api.get<PaginatedResponse<MetaEventLog>>('/api/v1/webhooks/meta-events', params as Record<string, string>),
+    refetchInterval: 15000,
+  });
+}
+
 // Team
 export interface TeamMember {
   id: string;

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Send, X, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Trash2, Send, X, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Activity } from 'lucide-react';
 import {
-  useWebhooks, useCreateWebhook, useDeleteWebhook, useTestWebhook, useWebhookLogs
+  useWebhooks, useCreateWebhook, useDeleteWebhook, useTestWebhook, useWebhookLogs,
+  useMetaEventLogs, MetaEventLog
 } from '../../../lib/hooks';
 
 const EVENT_OPTIONS = [
@@ -13,6 +14,81 @@ const EVENT_OPTIONS = [
   'message.read',
   'message.failed'
 ];
+
+const META_EVENT_TYPES = [
+  { value: '', label: 'All events' },
+  { value: 'message_received', label: 'Message received' },
+  { value: 'message_sent', label: 'Message sent' },
+  { value: 'message_delivered', label: 'Message delivered' },
+  { value: 'message_read', label: 'Message read' },
+  { value: 'message_failed', label: 'Message failed' },
+  { value: 'message_template_status_update', label: 'Template status update' },
+  { value: 'message_template_quality_update', label: 'Template quality update' },
+  { value: 'phone_number_quality_update', label: 'Phone number quality update' },
+  { value: 'account_update', label: 'Account update' },
+  { value: 'account_alerts', label: 'Account alerts' },
+  { value: 'security', label: 'Security' }
+];
+
+function metaEventBadgeStyle(eventType: string): string {
+  if (eventType.includes('failed') || eventType === 'security') return 'bg-error/10 text-error';
+  if (eventType.includes('template_status')) return 'bg-primary/10 text-primary';
+  if (eventType.includes('quality')) return 'bg-warning/10 text-warning';
+  if (eventType.includes('delivered') || eventType.includes('read') || eventType === 'message_received') return 'bg-success/10 text-success';
+  return 'bg-hairline-soft text-body';
+}
+
+function metaEventLabel(eventType: string): string {
+  const match = META_EVENT_TYPES.find((e) => e.value === eventType);
+  return match ? match.label : eventType.replace(/_/g, ' ');
+}
+
+function MetaEventRow({ log }: { log: MetaEventLog }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <>
+      <tr className="hover:bg-canvas-soft cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+        <td className="px-md py-sm">
+          <span className={`inline-flex items-center text-caption-uppercase px-sm py-xxs rounded-pill ${metaEventBadgeStyle(log.eventType)}`}>
+            {metaEventLabel(log.eventType)}
+          </span>
+        </td>
+        <td className="px-md py-sm font-body text-body-sm text-body truncate max-w-xs">{log.entityId || '—'}</td>
+        <td className="px-md py-sm font-body text-body-sm text-body truncate max-w-[10rem]">{log.phoneNumberId || '—'}</td>
+        <td className="px-md py-sm">
+          {log.status === 'error' ? (
+            <span className="inline-flex items-center gap-xxs text-caption-uppercase px-sm py-xxs rounded-pill bg-error/10 text-error">
+              <XCircle className="w-3 h-3" /> Error
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-xxs text-caption-uppercase px-sm py-xxs rounded-pill bg-success/10 text-success">
+              <CheckCircle className="w-3 h-3" /> Processed
+            </span>
+          )}
+        </td>
+        <td className="px-md py-sm font-body text-body-sm text-body">
+          {new Date(log.receivedAt).toLocaleString()}
+        </td>
+        <td className="px-md py-sm">
+          {expanded ? <ChevronUp className="w-4 h-4 text-muted" /> : <ChevronDown className="w-4 h-4 text-muted" />}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="bg-canvas-soft">
+          <td colSpan={6} className="px-md py-md">
+            {log.errorMessage && (
+              <p className="font-body text-body-sm text-error mb-sm">{log.errorMessage}</p>
+            )}
+            <pre className="font-mono text-caption text-body bg-surface-card border border-hairline rounded-md p-md overflow-x-auto whitespace-pre-wrap break-all">
+              {JSON.stringify(log.payload, null, 2)}
+            </pre>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 
 function StatusBadge({ status }: { status: number | null }) {
   if (status === null) {
@@ -37,20 +113,27 @@ function StatusBadge({ status }: { status: number | null }) {
 }
 
 export default function LogsPage() {
+  const [tab, setTab] = useState<'meta' | 'webhooks'>('meta');
   const [showCreate, setShowCreate] = useState(false);
   const [url, setUrl] = useState('');
   const [selectedEvents, setSelectedEvents] = useState<string[]>(['message.received']);
   const [formError, setFormError] = useState('');
   const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [metaEventFilter, setMetaEventFilter] = useState('');
 
   const { data: webhooksRes, isLoading: webhooksLoading } = useWebhooks();
   const { data: logsRes, isLoading: logsLoading } = useWebhookLogs();
+  const { data: metaEventsRes, isLoading: metaEventsLoading } = useMetaEventLogs({
+    eventType: metaEventFilter || undefined,
+    limit: '50'
+  });
   const createWebhook = useCreateWebhook();
   const deleteWebhook = useDeleteWebhook();
   const testWebhook = useTestWebhook();
 
   const webhooks = webhooksRes?.data || [];
   const logs = logsRes?.data || [];
+  const metaEvents = metaEventsRes?.data || [];
 
   const toggleEvent = (event: string) => {
     setSelectedEvents((prev) =>
@@ -92,20 +175,94 @@ export default function LogsPage() {
       <div className="max-w-content mx-auto">
         <div className="flex items-center justify-between mb-lg">
           <div>
-            <h1 className="font-display text-display-md text-ink">Webhooks & Logs</h1>
+            <h1 className="font-display text-display-md text-ink">Logs</h1>
             <p className="font-body text-body-md text-muted mt-xs">
-              Manage outbound webhook endpoints and inspect delivery history
+              Every event Meta sends us, plus outbound webhook deliveries to your endpoints
             </p>
           </div>
+          {tab === 'webhooks' && (
+            <button
+              onClick={() => { setShowCreate(true); setFormError(''); setNewSecret(null); }}
+              className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:bg-primary-active transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Webhook</span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-xs mb-lg border-b border-hairline">
           <button
-            onClick={() => { setShowCreate(true); setFormError(''); setNewSecret(null); }}
-            className="bg-primary text-on-primary font-body text-button h-10 px-xl rounded-pill flex items-center space-x-xs hover:bg-primary-active transition"
+            onClick={() => setTab('meta')}
+            className={`px-md py-sm font-body text-button border-b-2 transition ${tab === 'meta' ? 'border-primary text-ink' : 'border-transparent text-muted hover:text-ink'}`}
           >
-            <Plus className="w-4 h-4" />
-            <span>Add Webhook</span>
+            Meta Event Logs
+          </button>
+          <button
+            onClick={() => setTab('webhooks')}
+            className={`px-md py-sm font-body text-button border-b-2 transition ${tab === 'webhooks' ? 'border-primary text-ink' : 'border-transparent text-muted hover:text-ink'}`}
+          >
+            Webhooks & Delivery Logs
           </button>
         </div>
 
+        {tab === 'meta' && (
+          <div className="bg-surface-card border border-hairline rounded-xl overflow-hidden">
+            <div className="p-md border-b border-hairline flex items-center justify-between flex-wrap gap-sm">
+              <div>
+                <h2 className="font-display text-display-sm text-ink flex items-center gap-xs">
+                  <Activity className="w-4 h-4 text-primary" /> Meta Event Logs
+                </h2>
+                <p className="font-body text-body-sm text-muted mt-xxs">
+                  Message delivery status, template status/quality updates, phone number quality updates, and every other event Meta delivers to your webhook &mdash; auto-refreshes every 15s
+                </p>
+              </div>
+              <select
+                value={metaEventFilter}
+                onChange={(e) => setMetaEventFilter(e.target.value)}
+                className="bg-surface-card border border-hairline-strong rounded-md font-body text-body-sm text-ink px-sm h-9 focus:outline-none focus:border-2 focus:border-primary transition"
+              >
+                {META_EVENT_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            {metaEventsLoading ? (
+              <div className="p-md space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-10 bg-hairline-soft rounded animate-pulse" />
+                ))}
+              </div>
+            ) : metaEvents.length === 0 ? (
+              <div className="text-center py-lg text-muted font-body text-body-md">
+                No Meta events recorded yet. Once your WhatsApp number is connected and subscribed, incoming messages, delivery statuses, and template/quality updates will appear here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-canvas-soft">
+                    <tr>
+                      <th className="px-md py-sm text-left font-body text-title-sm text-muted">Event</th>
+                      <th className="px-md py-sm text-left font-body text-title-sm text-muted">Entity</th>
+                      <th className="px-md py-sm text-left font-body text-title-sm text-muted">Phone Number ID</th>
+                      <th className="px-md py-sm text-left font-body text-title-sm text-muted">Status</th>
+                      <th className="px-md py-sm text-left font-body text-title-sm text-muted">Received</th>
+                      <th className="px-md py-sm"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hairline">
+                    {metaEvents.map((log) => (
+                      <MetaEventRow key={log.id} log={log} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'webhooks' && (
+        <>
         <div className="bg-surface-card border border-hairline rounded-xl overflow-hidden mb-lg">
           <div className="p-md border-b border-hairline">
             <h2 className="font-display text-display-sm text-ink">Webhook Endpoints</h2>
@@ -201,6 +358,8 @@ export default function LogsPage() {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {showCreate && (
