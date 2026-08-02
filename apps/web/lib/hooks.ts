@@ -657,6 +657,21 @@ export function useWallet() {
   });
 }
 
+export function useRazorpayConfig() {
+  return useQuery({
+    queryKey: ['billing', 'razorpay-config'],
+    queryFn: () => api.get<ApiResponse<{ keyId: string; inrToCredits: number }>>('/api/v1/billing/razorpay-config'),
+    retry: false,
+  });
+}
+
+export function useCreateTopUpOrder() {
+  return useMutation({
+    mutationFn: (amount: number) =>
+      api.post<ApiResponse<{ orderId: string; amount: number; currency: string }>>('/api/v1/billing/topup/create-order', { amount }),
+  });
+}
+
 // Contact Segments
 export interface ContactSegment {
   id: string;

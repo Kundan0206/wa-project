@@ -341,6 +341,19 @@ CREATE TABLE wallet_transactions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Payment Orders (Razorpay wallet top-ups, 1 INR = 1 credit)
+CREATE TABLE payment_orders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  razorpay_order_id TEXT NOT NULL UNIQUE,
+  razorpay_payment_id TEXT,
+  amount FLOAT NOT NULL,
+  credits FLOAT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'created',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  paid_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Invoices
 CREATE TABLE invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -395,6 +408,8 @@ CREATE INDEX idx_conversations_status ON conversations(status);
 CREATE INDEX idx_templates_tenant ON templates(tenant_id);
 CREATE INDEX idx_campaigns_tenant ON campaigns(tenant_id);
 CREATE INDEX idx_flows_tenant ON flows(tenant_id);
+CREATE INDEX idx_payment_orders_tenant ON payment_orders(tenant_id);
+CREATE INDEX idx_payment_orders_razorpay_order ON payment_orders(razorpay_order_id);
 
 -- Insert default plans
 INSERT INTO plans (name, price_monthly, price_yearly, message_limit, contact_limit, agent_limit, features) VALUES
