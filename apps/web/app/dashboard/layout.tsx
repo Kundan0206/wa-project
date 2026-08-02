@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, MessageSquare, Users, Send, Bot, BarChart3,
   Settings, Phone, FileText, ScrollText, Image as ImageIcon,
-  UserCog, Key, CreditCard
+  UserCog, Key, CreditCard, Code2
 } from 'lucide-react';
 import { useAuthStore } from '../../lib/store';
 
@@ -26,6 +26,7 @@ const settingsItems = [
   { href: '/dashboard/logs', label: 'Logs', icon: ScrollText },
   { href: '/dashboard/team', label: 'Team', icon: UserCog },
   { href: '/dashboard/api-keys', label: 'API Keys', icon: Key },
+  { href: '/dashboard/api-docs', label: 'API Docs', icon: Code2 },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
