@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest, asyncHandler } from '../middleware/auth.js';
-import { sendWhatsAppMessage, sendTemplateMessage } from '../services/whatsapp.service.js';
+import { sendWhatsAppMessage, sendTemplateMessage, markMessageAsRead } from '../services/whatsapp.service.js';
 import { addToMessageQueue } from '../queue/index.js';
 
 const router = Router();
@@ -212,11 +212,9 @@ router.post('/mark-read', authenticate, asyncHandler(async (req: AuthRequest, re
     return;
   }
 
-  await sendWhatsAppMessage(
+  await markMessageAsRead(
     message.phone_numbers.waba_accounts.access_token,
     message.phone_numbers.phone_number_id,
-    message.recipient,
-    { type: 'text', text: { body: '' } },
     message.wamid!
   );
 

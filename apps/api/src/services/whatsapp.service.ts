@@ -42,13 +42,8 @@ export async function sendWhatsAppMessage(
   accessToken: string,
   phoneNumberId: string,
   to: string,
-  message: WhatsAppMessage,
-  wamid?: string
+  message: WhatsAppMessage
 ) {
-  const url = wamid
-    ? `${META_API_URL}/${wamid}/messages`
-    : `${META_API_URL}/${phoneNumberId}/messages`;
-
   const { messaging_product: _messagingProduct, to: _messageTo, ...messageBody } = message;
   const payload = {
     messaging_product: 'whatsapp',
@@ -56,13 +51,40 @@ export async function sendWhatsAppMessage(
     ...messageBody
   };
 
-  const response = await fetch(url, {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/messages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
+  });
+
+  const data = await readJson<{ error?: MetaError }>(response);
+
+  if (data.error) {
+    throw new Error(formatMetaError(data.error));
+  }
+
+  return data;
+}
+
+// Marks an inbound message as read (and shows the "typing"/blue-tick receipt
+// to the customer). This is a distinct Cloud API call from sending a message
+// - it POSTs a status update to the phone number's /messages endpoint, not
+// to the message itself.
+export async function markMessageAsRead(accessToken: string, phoneNumberId: string, wamid: string) {
+  const response = await fetch(`${META_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: wamid
+    })
   });
 
   const data = await readJson<{ error?: MetaError }>(response);
