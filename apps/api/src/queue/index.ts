@@ -117,6 +117,14 @@ async function processCampaignJob(data: CampaignJob) {
 
   if (!campaign) return;
 
+  if (!campaign.phone_numbers || campaign.phone_numbers.status === 'deregistered') {
+    await supabase
+      .from('campaigns')
+      .update({ status: 'failed' })
+      .eq('id', campaign.id);
+    return;
+  }
+
   let contacts: any[] = [];
 
   if (campaign.audience_type === 'segment' && campaign.segment_id) {

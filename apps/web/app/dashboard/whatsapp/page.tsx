@@ -160,7 +160,11 @@ function WhatsAppContent() {
 
   const handleDisconnect = async (id: string) => {
     if (confirm('Disconnect this WABA account? This will remove all phone numbers.')) {
-      disconnectWaba.mutate(id);
+      try {
+        await disconnectWaba.mutateAsync(id);
+      } catch (err: any) {
+        alert(err.message || 'Failed to disconnect WABA account');
+      }
     }
   };
 

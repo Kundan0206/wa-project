@@ -28,6 +28,11 @@ router.post('/text', authenticate, asyncHandler(async (req: AuthRequest, res: Re
     return;
   }
 
+  if (phone.status === 'deregistered') {
+    res.status(400).json({ error: 'This phone number is deregistered and cannot send messages' });
+    return;
+  }
+
   const { data: message, error: msgError } = await supabase
     .from('messages')
     .insert({
@@ -82,6 +87,11 @@ router.post('/template', authenticate, asyncHandler(async (req: AuthRequest, res
 
   if (!phone) {
     res.status(404).json({ error: 'Phone number not found' });
+    return;
+  }
+
+  if (phone.status === 'deregistered') {
+    res.status(400).json({ error: 'This phone number is deregistered and cannot send messages' });
     return;
   }
 

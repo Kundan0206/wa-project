@@ -175,6 +175,16 @@ router.post('/:id/send', authenticate, asyncHandler(async (req: AuthRequest, res
     return;
   }
 
+  if (!conversation.phone_numbers) {
+    res.status(400).json({ error: 'This conversation\'s phone number has been removed and can no longer send messages' });
+    return;
+  }
+
+  if (conversation.phone_numbers.status === 'deregistered') {
+    res.status(400).json({ error: 'This phone number is deregistered and cannot send messages' });
+    return;
+  }
+
   const { data: msg, error } = await supabase
     .from('messages')
     .insert({

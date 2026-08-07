@@ -163,7 +163,7 @@ CREATE TABLE campaigns (
   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   template_id UUID REFERENCES templates(id),
-  phone_number_id UUID REFERENCES phone_numbers(id),
+  phone_number_id UUID REFERENCES phone_numbers(id) ON DELETE SET NULL,
   audience_type TEXT DEFAULT 'all',
   segment_id UUID,
   contact_count INT DEFAULT 0,
@@ -195,7 +195,7 @@ CREATE TABLE campaign_messages (
 CREATE TABLE conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-  phone_number_id UUID REFERENCES phone_numbers(id),
+  phone_number_id UUID REFERENCES phone_numbers(id) ON DELETE SET NULL,
   contact_id UUID REFERENCES contacts(id),
   status TEXT DEFAULT 'open',
   assigned_to UUID,
@@ -241,7 +241,7 @@ CREATE TABLE labels (
 CREATE TABLE flows (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-  phone_number_id UUID REFERENCES phone_numbers(id),
+  phone_number_id UUID REFERENCES phone_numbers(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   trigger_type TEXT NOT NULL,
   trigger_value TEXT,

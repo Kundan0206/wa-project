@@ -190,7 +190,13 @@ export async function registerPhoneNumber(
     body: JSON.stringify({ messaging_product: 'whatsapp', display_name: displayName })
   });
 
-  return readJson(response);
+  const data = await readJson<{ error?: MetaError }>(response);
+
+  if (data.error) {
+    throw new Error(formatMetaError(data.error));
+  }
+
+  return data;
 }
 
 export async function getPhoneNumberQuality(accessToken: string, phoneNumberId: string) {
@@ -226,7 +232,13 @@ export async function deregisterPhoneNumber(accessToken: string, phoneNumberId: 
     }
   });
 
-  return readJson(response);
+  const data = await readJson<{ error?: MetaError }>(response);
+
+  if (data.error) {
+    throw new Error(formatMetaError(data.error));
+  }
+
+  return data;
 }
 
 export async function requestVerificationCode(accessToken: string, phoneNumberId: string, method: string = 'SMS', locale: string = 'en_US') {
@@ -239,7 +251,13 @@ export async function requestVerificationCode(accessToken: string, phoneNumberId
     body: JSON.stringify({ code_method: method, locale })
   });
 
-  return readJson(response);
+  const data = await readJson<{ error?: MetaError }>(response);
+
+  if (data.error) {
+    throw new Error(formatMetaError(data.error));
+  }
+
+  return data;
 }
 
 export async function verifyPhoneNumber(accessToken: string, phoneNumberId: string, code: string) {
@@ -252,7 +270,13 @@ export async function verifyPhoneNumber(accessToken: string, phoneNumberId: stri
     body: JSON.stringify({ code })
   });
 
-  return readJson(response);
+  const data = await readJson<{ error?: MetaError }>(response);
+
+  if (data.error) {
+    throw new Error(formatMetaError(data.error));
+  }
+
+  return data;
 }
 
 export async function getPhoneNumberDetails(accessToken: string, phoneNumberId: string) {
