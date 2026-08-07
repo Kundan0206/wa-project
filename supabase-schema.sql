@@ -290,6 +290,23 @@ CREATE TABLE webhook_logs (
   attempt_count INT DEFAULT 0
 );
 
+-- Job Queue (backs async message/campaign/webhook sends - see apps/api/src/queue/index.ts)
+CREATE TABLE job_queue (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_type TEXT NOT NULL CHECK (job_type IN ('message', 'campaign', 'webhook')),
+  payload JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  attempts INT NOT NULL DEFAULT 0,
+  max_attempts INT NOT NULL DEFAULT 3,
+  last_error TEXT,
+  run_after TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_job_queue_claim ON job_queue (status, run_after, created_at)
+  WHERE status = 'pending';
+
 -- Media Files
 CREATE TABLE media_files (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

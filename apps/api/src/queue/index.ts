@@ -1,5 +1,3 @@
-import { Queue, Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
 import { supabase } from '../lib/supabase.js';
 import { sendWhatsAppMessage, sendTemplateMessage } from '../services/whatsapp.service.js';
 import { resolveSegmentContacts } from '../services/segment.service.js';
@@ -28,24 +26,15 @@ interface WebhookJob {
   payload: any;
 }
 
-interface FlowJob {
-  contactId: string;
-  flowId: string;
-  message: string;
+type JobType = 'message' | 'campaign' | 'webhook';
+
+interface QueuedJob {
+  id: string;
+  job_type: JobType;
+  payload: MessageJob | CampaignJob | WebhookJob;
+  attempts: number;
+  max_attempts: number;
 }
-
-const redisUrl = process.env.REDIS_URL;
-
-let connection: IORedis | null = null;
-let messageQueue: Queue<MessageJob> | null = null;
-let campaignQueue: Queue<CampaignJob> | null = null;
-let webhookQueue: Queue<WebhookJob> | null = null;
-let flowQueue: Queue<FlowJob> | null = null;
-
-export let messageWorker: Worker<MessageJob> | { on: () => void; close: () => Promise<void> } = { on: () => {}, close: async () => {} };
-export let campaignWorker: Worker<CampaignJob> | { on: () => void; close: () => Promise<void> } = { on: () => {}, close: async () => {} };
-export let webhookWorker: Worker<WebhookJob> | { on: () => void; close: () => Promise<void> } = { on: () => {}, close: async () => {} };
-export let flowWorker: Worker<FlowJob> | { on: () => void; close: () => Promise<void> } = { on: () => {}, close: async () => {} };
 
 async function processMessageJob(data: MessageJob) {
   const { data: message } = await supabase
@@ -249,57 +238,108 @@ async function processWebhookJob(data: WebhookJob) {
   }
 }
 
-export async function connectQueues() {
-  if (!redisUrl) {
-    console.log('Queue system: REDIS_URL not set, running in synchronous fallback mode');
-    return;
+const PROCESSORS: Record<JobType, (payload: any) => Promise<void>> = {
+  message: processMessageJob,
+  campaign: processCampaignJob,
+  webhook: processWebhookJob
+};
+
+const POLL_INTERVAL_MS = 2000;
+const BATCH_SIZE = 10;
+const RETRY_BACKOFF_MS = 30_000;
+
+let pollTimer: NodeJS.Timeout | null = null;
+let polling = false;
+
+async function claimJobs(): Promise<QueuedJob[]> {
+  const { data: candidates } = await supabase
+    .from('job_queue')
+    .select('id')
+    .eq('status', 'pending')
+    .lte('run_after', new Date().toISOString())
+    .order('created_at', { ascending: true })
+    .limit(BATCH_SIZE);
+
+  if (!candidates || candidates.length === 0) return [];
+
+  const { data: claimed } = await supabase
+    .from('job_queue')
+    .update({ status: 'processing', updated_at: new Date().toISOString() })
+    .in('id', candidates.map((c) => c.id))
+    .eq('status', 'pending')
+    .select('id, job_type, payload, attempts, max_attempts');
+
+  return (claimed || []) as QueuedJob[];
+}
+
+async function runJob(job: QueuedJob) {
+  try {
+    await PROCESSORS[job.job_type](job.payload);
+    await supabase
+      .from('job_queue')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', job.id);
+  } catch (error: any) {
+    const attempts = job.attempts + 1;
+    const willRetry = attempts < job.max_attempts;
+
+    await supabase
+      .from('job_queue')
+      .update({
+        status: willRetry ? 'pending' : 'failed',
+        attempts,
+        last_error: error.message?.slice(0, 2000) || 'Unknown error',
+        run_after: new Date(Date.now() + RETRY_BACKOFF_MS * attempts).toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+
+    console.error(`[job_queue] ${job.job_type} job ${job.id} failed (attempt ${attempts}/${job.max_attempts}):`, error.message);
   }
+}
 
-  connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+async function poll() {
+  if (polling) return;
+  polling = true;
+  try {
+    const jobs = await claimJobs();
+    if (jobs.length > 0) {
+      await Promise.all(jobs.map(runJob));
+    }
+  } catch (error: any) {
+    console.error('[job_queue] poll failed:', error.message);
+  } finally {
+    polling = false;
+  }
+}
 
-  messageQueue = new Queue<MessageJob>('messages', { connection });
-  campaignQueue = new Queue<CampaignJob>('campaigns', { connection });
-  webhookQueue = new Queue<WebhookJob>('webhooks', { connection });
-  flowQueue = new Queue<FlowJob>('flows', { connection });
+export async function connectQueues() {
+  if (pollTimer) return;
+  pollTimer = setInterval(poll, POLL_INTERVAL_MS);
+  void poll();
+  console.log('Queue system initialized (Supabase-backed job_queue, polling every %dms)', POLL_INTERVAL_MS);
+}
 
-  messageWorker = new Worker<MessageJob>('messages', (job: Job<MessageJob>) => processMessageJob(job.data), { connection });
-  campaignWorker = new Worker<CampaignJob>('campaigns', (job: Job<CampaignJob>) => processCampaignJob(job.data), { connection });
-  webhookWorker = new Worker<WebhookJob>('webhooks', (job: Job<WebhookJob>) => processWebhookJob(job.data), { connection });
-  flowWorker = new Worker<FlowJob>('flows', async () => {}, { connection });
+export async function stopQueues() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
 
-  messageWorker.on('failed', (job, err) => console.error(`[messages] job ${job?.id} failed:`, err.message));
-  campaignWorker.on('failed', (job, err) => console.error(`[campaigns] job ${job?.id} failed:`, err.message));
-  webhookWorker.on('failed', (job, err) => console.error(`[webhooks] job ${job?.id} failed:`, err.message));
-
-  console.log('Queue system initialized (BullMQ + Redis)');
+async function enqueue(jobType: JobType, payload: MessageJob | CampaignJob | WebhookJob) {
+  const { error } = await supabase.from('job_queue').insert({ job_type: jobType, payload });
+  if (error) throw new Error(`Failed to enqueue ${jobType} job: ${error.message}`);
 }
 
 export async function addToMessageQueue(data: MessageJob) {
-  if (messageQueue) {
-    await messageQueue.add('send', data);
-    return;
-  }
-  await processMessageJob(data);
+  await enqueue('message', data);
 }
 
 export async function addCampaignJob(data: CampaignJob) {
-  if (campaignQueue) {
-    await campaignQueue.add('run', data);
-    return;
-  }
-  await processCampaignJob(data);
+  await enqueue('campaign', data);
 }
 
 export async function addWebhookJob(data: WebhookJob) {
-  if (webhookQueue) {
-    await webhookQueue.add('deliver', data);
-    return;
-  }
-  await processWebhookJob(data);
-}
-
-export async function addFlowJob(data: FlowJob) {
-  if (flowQueue) {
-    await flowQueue.add('run', data);
-  }
+  await enqueue('webhook', data);
 }
